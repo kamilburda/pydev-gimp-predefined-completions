@@ -20,6 +20,7 @@ Running the Generator
 ---------------------
 
 The script is written as a GIMP plug-in. To run the generator:
+
 1. Install the plug-in by copying all files to the
    `[user directory]/.gimp-<version>/plug-ins` directory.
 2. Open GIMP and choose

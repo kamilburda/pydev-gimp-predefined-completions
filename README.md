@@ -43,15 +43,14 @@ To run the generator, open GIMP and choose
 
 Alternatively, you may run the plug-in from the Python-Fu console: Open GIMP,
 choose `Filters -> Python-Fu -> Console` and enter
-pdb.generate_predefined_completions_for_pydev()`.
+`pdb.generate_predefined_completions_for_pydev()`.
 
 
 Installing Predefined Completions in PyDev
 ------------------------------------------
 
 Once the generator finishes running, the predefined completions are located in
-in the `pypredefs` subdirectory of the directory where this plug-in is
-installed.
+the `pypredefs` subdirectory of the directory where this plug-in is installed.
 
 To add the predefined completions to PyDev, refer to
 [PyDev documentation](http://www.pydev.org/manual_101_interpreter.html). Simply

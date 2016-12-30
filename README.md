@@ -1,8 +1,10 @@
 PyDev Predefined Completions Generator for GIMP
 ===============================================
 
-This simple Python script generates [predefined completions](http://www.pydev.org/manual_101_interpreter.html) for [PyDev](http://www.pydev.org/)
-for GIMP and GTK modules to improve development of GIMP plug-ins written in Python.
+This simple Python script generates
+[predefined completions](http://www.pydev.org/manual_101_interpreter.html)
+for [PyDev](http://www.pydev.org/) for GIMP and GTK modules to improve
+development of GIMP plug-ins written in Python.
 
 Development of GIMP plug-ins in Python is provided by several Python modules
 compiled as `.pyd` files. However, PyDev has trouble parsing such files,
@@ -15,19 +17,32 @@ completions for GIMP and GTK Python modules. Additionally, this script also
 generates predefined completions for all plug-ins and procedures installed in
 GIMP.
 
+Requirements
+------------
+
+* This script is written as a GIMP plug-in and therefore requires GIMP, version
+2.8 or later.
+* [astor](https://github.com/berkerpeksag/astor) library
+
+
+Installation
+------------
+
+1. Install the script by copying all files to the
+   `[user directory]/.gimp-<version>/plug-ins` directory.
+2. Download the [astor](https://github.com/berkerpeksag/astor) library and
+   install it in `[user directory]/.gimp-<version>/plug-ins` directory.
+
 
 Running the Generator
 ---------------------
 
-The script is written as a GIMP plug-in. To run the generator:
+To run the generator, open GIMP and choose
+`Filters -> Python-Fu -> Generate Predefined Completions for PyDev`.
 
-1. Install the plug-in by copying all files to the
-   `[user directory]/.gimp-<version>/plug-ins` directory.
-2. Open GIMP and choose
-   `Filters -> Python-Fu -> Generate Predefined Completions for PyDev`.
-   Alternatively, you may run the plug-in from the Python-Fu console: open GIMP,
-   choose `Filters -> Python-Fu -> Console` and enter
-   `pdb.generate_predefined_completions_for_pydev()`.
+Alternatively, you may run the plug-in from the Python-Fu console: Open GIMP,
+choose `Filters -> Python-Fu -> Console` and enter
+pdb.generate_predefined_completions_for_pydev()`.
 
 
 Installing Predefined Completions in PyDev

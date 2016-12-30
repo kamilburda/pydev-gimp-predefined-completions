@@ -1,0 +1,14 @@
+gimp
+_gimpenums
+_gimpui
+gimpcolor
+gimpthumb
+gtk._gtk
+gtk.gdk
+gobject._gobject
+cairo._cairo
+pango
+pangocairo
+atk
+glib._glib
+gio._gio

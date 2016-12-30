@@ -22,7 +22,8 @@ Requirements
 
 * This script is written as a GIMP plug-in and therefore requires GIMP, version
 2.8 or later.
-* [astor](https://github.com/berkerpeksag/astor) library
+* [astor](https://github.com/berkerpeksag/astor) library - not version 0.5, but
+  preferably the latest revision from the repository.
 
 
 Installation

@@ -49,7 +49,10 @@ def insert_ast_nodes(member, node_member):
 def insert_ast_node(child_member_name, member, node_member):
   child_member = getattr(member, child_member_name, None)
   
-  if inspect.isclass(child_member) and _can_inspect_class_member(child_member_name):
+  if inspect.ismodule(child_member):
+    node_child_member = get_ast_node_for_module(child_member, member)
+    node_member.body.insert(0, node_child_member)
+  elif inspect.isclass(child_member) and _can_inspect_class_member(child_member_name):
     node_child_member = get_ast_node_for_class(child_member)
     node_member.body.append(node_child_member)
     insert_ast_docstring(node_child_member, child_member)

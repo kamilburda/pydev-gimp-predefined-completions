@@ -13,9 +13,12 @@ messages. While PyDev also provides "Forced Builtins" feature, it apparently
 does not work for GIMP modules (and GTK modules, at least on Windows).
 
 This script therefore attempts to solve this problem by generating predefined
-completions for GIMP and GTK Python modules. Additionally, this script also
-generates predefined completions for all plug-ins and procedures installed in
-GIMP.
+completions for GIMP and GTK Python modules.
+
+Additionally, this script generates predefined completions for all plug-ins and
+procedures installed in GIMP (stored in the so called procedural database, or
+PDB in short).
+
 
 Requirements
 ------------

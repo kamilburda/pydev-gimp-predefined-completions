@@ -15,32 +15,74 @@ import pypredef_generator
 
 #===============================================================================
 
-_PDB_TYPES_MAP = {
-  gimpenums.PDB_INT32: int,
-  gimpenums.PDB_INT16: int,
-  gimpenums.PDB_INT8: int,
-  gimpenums.PDB_FLOAT: float,
-  gimpenums.PDB_STRING: bytes,
-  gimpenums.PDB_COLOR: gimpcolor.RGB,
+
+class PdbType(object):
   
-  gimpenums.PDB_INT32ARRAY: tuple,
-  gimpenums.PDB_INT16ARRAY: tuple,
-  gimpenums.PDB_INT8ARRAY: tuple,
-  gimpenums.PDB_FLOATARRAY: tuple,
-  gimpenums.PDB_STRINGARRAY: tuple,
-  gimpenums.PDB_COLORARRAY: tuple,
+  def __init__(self, type_id, type_, base_type=None):
+    self._type_id = type_id
+    self._type_ = type_
+    self._base_type = base_type
   
-  gimpenums.PDB_IMAGE: gimp.Image,
-  gimpenums.PDB_ITEM: gimp.Item,
-  gimpenums.PDB_DRAWABLE: gimp.Drawable,
-  gimpenums.PDB_LAYER: gimp.Layer,
-  gimpenums.PDB_CHANNEL: gimp.Channel,
-  gimpenums.PDB_SELECTION: gimp.Channel,
-  gimpenums.PDB_VECTORS: gimp.Vectors,
+  @property
+  def type_id(self):
+    return self._type_id
   
-  gimpenums.PDB_PARASITE: gimp.Parasite,
-  gimpenums.PDB_DISPLAY: gimp.Display,
-}
+  @property
+  def type_(self):
+    return self._type_
+  
+  @property
+  def base_type(self):
+    return self._base_type
+  
+  def get_name(self, include_base_type=False):
+    if include_base_type and self._base_type is not None:
+      return "{0}({1})".format(get_type_name(self._type_), get_type_name(self._base_type))
+    else:
+      return get_type_name(self._type_)
+  
+  @classmethod
+  def get_by_id(cls, pdb_type_id):
+    return _PDB_TYPES_MAP[pdb_type_id]
+
+
+def get_type_name(type_):
+  type_module = inspect.getmodule(type_)
+  
+  if type_module and hasattr(type_module, "__name__") and type_module.__name__ != "__builtin__":
+    return ".".join([type_module.__name__, type_.__name__])
+  else:
+    return type_.__name__
+
+
+_PDB_TYPE_ITEMS = [
+  (gimpenums.PDB_INT32, int),
+  (gimpenums.PDB_INT16, int),
+  (gimpenums.PDB_INT8, int),
+  (gimpenums.PDB_FLOAT, float),
+  (gimpenums.PDB_STRING, bytes),
+  (gimpenums.PDB_COLOR, gimpcolor.RGB),
+  
+  (gimpenums.PDB_INT32ARRAY, tuple, int),
+  (gimpenums.PDB_INT16ARRAY, tuple, int),
+  (gimpenums.PDB_INT8ARRAY, tuple, int),
+  (gimpenums.PDB_FLOATARRAY, tuple, float),
+  (gimpenums.PDB_STRINGARRAY, tuple, bytes),
+  (gimpenums.PDB_COLORARRAY, tuple, gimpcolor.RGB),
+  
+  (gimpenums.PDB_IMAGE, gimp.Image),
+  (gimpenums.PDB_ITEM, gimp.Item),
+  (gimpenums.PDB_DRAWABLE, gimp.Drawable),
+  (gimpenums.PDB_LAYER, gimp.Layer),
+  (gimpenums.PDB_CHANNEL, gimp.Channel),
+  (gimpenums.PDB_SELECTION, gimp.Channel),
+  (gimpenums.PDB_VECTORS, gimp.Vectors),
+  
+  (gimpenums.PDB_PARASITE, gimp.Parasite),
+  (gimpenums.PDB_DISPLAY, gimp.Display),
+]
+
+_PDB_TYPES_MAP = {type_item[0]: PdbType(*type_item) for type_item in _PDB_TYPE_ITEMS}
 
 #===============================================================================
 
@@ -98,39 +140,47 @@ def _get_ast_arguments_for_pdb_function(pdb_function):
 
 
 def _get_ast_docstring_for_pdb_function(pdb_function):
-  docstring = "\n" + pdb_function.proc_blurb
+  docstring = "\n"
+  docstring += pdb_function.proc_blurb
+  docstring += "\n\n"
   
   if pdb_function.proc_help and pdb_function.proc_help != pdb_function.proc_blurb:
-    docstring += "\n\n" + pdb_function.proc_help
-  
-  docstring += _get_pdb_docstring_type_info(pdb_function)
+    docstring += pdb_function.proc_help + "\n"
   
   docstring += "\n"
+  docstring += _get_pdb_docstring_param_info(pdb_function)
   
   return ast.Expr(value=ast.Str(s=docstring))
 
 
-def _get_pdb_docstring_type_info(pdb_function):
-  docstring_type_info = ""
+def _get_pdb_docstring_param_info(pdb_function):
+  docstring_param_info = ""
   pdb_params = _get_pdb_params(pdb_function)[0]
   
   if pdb_params:
-    docstring_type_info += "\n"
+    docstring_param_info += "Parameters:\n"
     
     for pdb_param_info in pdb_params:
-      docstring_type_info += "\n@type {0}: {1}".format(
-        _get_pdb_param_name(pdb_param_info), _get_pdb_type_name_by_id(pdb_param_info[0]))
+      docstring_param_info += _get_pdb_param_docstring(pdb_param_info) + "\n"
   
-  return docstring_type_info
+  return docstring_param_info
+
+
+def _get_pdb_param_docstring(pdb_param_info):
+  return "{0} ({1}): {2}".format(
+    _get_pdb_param_name(pdb_param_info),
+    PdbType.get_by_id(pdb_param_info[0]).get_name(include_base_type=True),
+    _get_pdb_param_description(pdb_param_info))
 
 
 def _get_ast_return_value_types_for_pdb_function(pdb_function):
   if len(pdb_function.return_vals) > 1:
     node_return_value_types = ast.Tuple(
-      elts=[ast.Name(id=_get_pdb_type_name_by_id(return_vals_info[0]))
+      elts=[ast.Name(id=PdbType.get_by_id(return_vals_info[0]).get_name())
             for return_vals_info in pdb_function.return_vals])
   elif len(pdb_function.return_vals) == 1:
-    node_return_value_types = ast.Name(id=_get_pdb_type_name_by_id(pdb_function.return_vals[0][0]))
+    node_return_value_types = ast.Name(
+      id=PdbType.get_by_id(pdb_function.return_vals[0][0]).get_name())
   else:
     node_return_value_types = ast.Name(id="None")
   
@@ -167,17 +217,9 @@ def _get_pdb_params(pdb_function):
   return pdb_params, has_run_mode_param
 
 
-def _get_pdb_type_name_by_id(pdb_type_id):
-  pdb_type = _PDB_TYPES_MAP[pdb_type_id]
-  
-  pdb_type_module = inspect.getmodule(pdb_type)
-  
-  if (pdb_type_module and hasattr(pdb_type_module, "__name__")
-      and pdb_type_module.__name__ != "__builtin__"):
-    return ".".join([pdb_type_module.__name__, pdb_type.__name__])
-  else:
-    return pdb_type.__name__
-
-
 def _get_pdb_param_name(pdb_param_info):
   return pdb_param_info[1].replace("-", "_")
+
+
+def _get_pdb_param_description(pdb_param_info):
+  return pdb_param_info[2] if pdb_param_info[2] is not None else ""

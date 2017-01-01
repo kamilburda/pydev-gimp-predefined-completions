@@ -3,6 +3,8 @@ This module defines functions to generate predefined completions for PyDev by
 introspection of module objects.
 """
 
+from __future__ import absolute_import, print_function, division, unicode_literals
+
 import inspect
 import os
 

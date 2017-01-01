@@ -3,7 +3,7 @@ This module defines a GIMP plug-in to generate predefined completions for PyDev
 (Eclipse IDE plug-in) for GIMP modules.
 """
 
-from __future__ import absolute_import, print_function, division
+from __future__ import absolute_import, print_function, division, unicode_literals
 
 import os
 

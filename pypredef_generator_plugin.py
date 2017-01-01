@@ -72,8 +72,8 @@ gimpfu.register(
   label="Generate Predefined Completions for PyDev",
   imagetypes="",
   params=[
-    (gimpfu.PF_INT, "generate_from_modules", "Generate completions from modules?", True),
-    (gimpfu.PF_INT, "generate_from_pdb",
+    (gimpfu.PF_BOOL, "generate_from_modules", "Generate completions from modules?", True),
+    (gimpfu.PF_BOOL, "generate_from_pdb",
      "Generate completions from GIMP PDB (procedural database)?", True)
   ],
   results=[],

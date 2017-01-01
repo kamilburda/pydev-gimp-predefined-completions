@@ -21,6 +21,8 @@ import pypredef_generator_pdb
 def generate_predefined_completions_for_pydev(generate_from_modules, generate_from_pdb):
   if generate_from_modules:
     module_names = _get_module_names(pypredef_generator.MODULES_FILE_PATH)
+  else:
+    module_names = []
   
   gimp_progress = GimpProgress(
     _get_num_progress_items(generate_from_modules, module_names, generate_from_pdb))

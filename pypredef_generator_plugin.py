@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 """
 This module defines a GIMP plug-in to generate predefined completions for PyDev
 (Eclipse IDE plug-in) for GIMP modules.
@@ -5,6 +7,7 @@ This module defines a GIMP plug-in to generate predefined completions for PyDev
 
 from __future__ import absolute_import, print_function, division, unicode_literals
 
+import io
 import os
 
 import importlib
@@ -43,7 +46,8 @@ def generate_predefined_completions_for_pydev(generate_from_modules, generate_fr
 
 def _get_module_names(modules_file_path):
   if os.path.isfile(modules_file_path):
-    with open(modules_file_path, "r") as modules_file:
+    with io.open(
+           modules_file_path, "r", encoding=pypredef_generator.TEXT_FILE_ENCODING) as modules_file:
       return [line.strip() for line in modules_file.readlines()]
   else:
     return []

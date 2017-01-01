@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 """
 This module is responsible for generating predefined completions for the GIMP
 procedural database (PDB).
@@ -151,6 +153,8 @@ def _get_ast_docstring_for_pdb_function(pdb_function):
   
   docstring += "\n"
   docstring += _get_pdb_docstring_param_info(pdb_function)
+  
+  docstring = docstring.encode(pypredef_generator.TEXT_FILE_ENCODING)
   
   return ast.Expr(value=ast.Str(s=docstring))
 

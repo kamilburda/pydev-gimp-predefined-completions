@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 """
 This module defines functions to generate predefined completions for PyDev by
 introspection of module objects.
@@ -6,6 +8,7 @@ introspection of module objects.
 from __future__ import absolute_import, print_function, division, unicode_literals
 
 import inspect
+import io
 import os
 
 import ast
@@ -18,6 +21,8 @@ PLUGIN_DIR = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentfram
 MODULES_FILE_PATH = os.path.join(PLUGIN_DIR, "modules.txt")
 PYPREDEF_FILES_DIRNAME = "pypredefs"
 PYPREDEF_FILES_DIR = os.path.join(PLUGIN_DIR, PYPREDEF_FILES_DIRNAME)
+
+TEXT_FILE_ENCODING = "utf-8"
 
 #===============================================================================
 
@@ -32,8 +37,9 @@ def generate_predefined_completions(module):
 
 
 def write_pypredef_file(module_name, node_module):
-  with open(_get_pypredef_file_path(module_name), "w") as pypredef_file:
-    pypredef_file.write(astor.to_source(node_module))
+  pypredef_file_path = _get_pypredef_file_path(module_name)
+  with io.open(pypredef_file_path, "w", encoding=TEXT_FILE_ENCODING) as pypredef_file:
+    pypredef_file.write(astor.to_source(node_module).decode(TEXT_FILE_ENCODING))
 
 
 def _get_pypredef_file_path(module_name):

@@ -15,16 +15,18 @@ import pypredef_generator_pdb
 #===============================================================================
 
 
-def generate_predefined_completions_for_pydev():
-  module_names = _get_module_names(pypredef_generator.MODULES_FILE_PATH)
+def generate_predefined_completions_for_pydev(generate_from_modules, generate_from_pdb):
+  if generate_from_modules:
+    module_names = _get_module_names(pypredef_generator.MODULES_FILE_PATH)
+    
+    _make_dirs(pypredef_generator.PYPREDEF_FILES_DIR)
+    
+    for module_name in module_names:
+      module = importlib.import_module(module_name)
+      pypredef_generator.generate_predefined_completions(module)
   
-  _make_dirs(pypredef_generator.PYPREDEF_FILES_DIR)
-  
-  for module_name in module_names:
-    module = importlib.import_module(module_name)
-    pypredef_generator.generate_predefined_completions(module)
-  
-  pypredef_generator_pdb.generate_predefined_completions_for_gimp_pdb()
+  if generate_from_pdb:
+    pypredef_generator_pdb.generate_predefined_completions_for_gimp_pdb()
 
 
 def _get_module_names(modules_file_path):
@@ -69,7 +71,11 @@ gimpfu.register(
   date="",
   label="Generate Predefined Completions for PyDev",
   imagetypes="",
-  params=[],
+  params=[
+    (gimpfu.PF_INT, "generate_from_modules", "Generate completions from modules?", True),
+    (gimpfu.PF_INT, "generate_from_pdb",
+     "Generate completions from GIMP PDB (procedural database)?", True)
+  ],
   results=[],
   function=generate_predefined_completions_for_pydev,
   menu="<Image>/Filters/Languages/Python-Fu")

@@ -136,11 +136,15 @@ def _get_ast_arguments_for_pdb_function(pdb_function):
     args.append(pdb_param_name)
   
   if has_run_mode_param:
-    args.append(ast.Name(id="run_mode"))
-    #FIXME: Avoid inserting constant string
-    defaults.append(ast.Name(id="gimpenums.RUN_NONINTERACTIVE"))
+    run_mode_name, run_mode_default_value_name = _get_run_mode_parameter_name_and_default_value()
+    args.append(ast.Name(id=run_mode_name))
+    defaults.append(ast.Name(id=run_mode_default_value_name))
   
   return ast.arguments(args=args, vararg=None, kwarg=None, defaults=defaults)
+
+
+def _get_run_mode_parameter_name_and_default_value():
+  return "run_mode", "gimpenums.RUN_NONINTERACTIVE"
 
 
 def _get_ast_docstring_for_pdb_function(pdb_function):

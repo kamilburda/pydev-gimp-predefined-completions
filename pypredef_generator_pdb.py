@@ -227,7 +227,10 @@ def _get_ast_docstring_for_pdb_function(pdb_function):
     docstring += "\n\n"
     docstring += pdb_function.proc_help
   
-  docstring += _get_pdb_docstring_for_params(pdb_function.params, "Parameters:")
+  docstring += _get_pdb_docstring_for_params(
+    pdb_function.params, "Parameters:",
+    additional_param_processing_callbacks=[_convert_int_pdb_param_to_bool])
+  docstring += _get_pdb_docstring_for_params(pdb_function.return_vals, "Returns:")
   
   docstring = _get_normalized_true_false_names(docstring)
   docstring = "\n" + docstring.strip() + "\n"
@@ -237,8 +240,12 @@ def _get_ast_docstring_for_pdb_function(pdb_function):
   return ast.Expr(value=ast.Str(s=docstring))
 
 
-def _get_pdb_docstring_for_params(pdb_function_params, docstring_heading):
+def _get_pdb_docstring_for_params(pdb_function_params, docstring_heading,
+                                  additional_param_processing_callbacks=None):
   params_docstring = ""
+  if additional_param_processing_callbacks is None:
+    additional_param_processing_callbacks = []
+  
   pdb_params, unused_ = get_pdb_params(pdb_function_params)
   
   if pdb_params:
@@ -246,12 +253,24 @@ def _get_pdb_docstring_for_params(pdb_function_params, docstring_heading):
     params_docstring += "{0}\n".format(docstring_heading)
     
     for pdb_param in pdb_params:
-      _convert_int_pdb_param_to_bool(pdb_param)
+      for process_pdb_param in additional_param_processing_callbacks:
+        process_pdb_param(pdb_param)
       params_docstring += _get_pdb_params_docstring(pdb_param) + "\n"
     
-    params_docstring.rstrip("\n")
+    params_docstring = params_docstring.rstrip("\n")
   
   return params_docstring
+
+
+def _get_pdb_params_docstring(pdb_param):
+  return "{0} ({1}): {2}".format(
+    pdb_param.name,
+    pdb_param.pdb_type.get_name(include_base_type=True),
+    pdb_param.description)
+
+
+def _get_normalized_true_false_names(docstring):
+  return docstring.replace("FALSE", "False").replace("TRUE", "True")
 
 
 def _convert_int_pdb_param_to_bool(pdb_param):
@@ -286,14 +305,3 @@ def _convert_int_pdb_param_to_bool(pdb_param):
     pdb_param.description = re.sub(
       pdb_bool_param_description_substitute_regex, "",
       pdb_param.description, flags=re.UNICODE | re.IGNORECASE)
-
-
-def _get_pdb_params_docstring(pdb_param):
-  return "{0} ({1}): {2}".format(
-    pdb_param.name,
-    pdb_param.pdb_type.get_name(include_base_type=True),
-    pdb_param.description)
-
-
-def _get_normalized_true_false_names(docstring):
-  return docstring.replace("FALSE", "False").replace("TRUE", "True")

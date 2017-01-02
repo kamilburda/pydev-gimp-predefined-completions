@@ -203,6 +203,20 @@ def _get_ast_arguments_for_pdb_function(pdb_function):
   return ast.arguments(args=args, vararg=None, kwarg=None, defaults=defaults)
 
 
+def _get_ast_return_value_types_for_pdb_function(pdb_function):
+  if len(pdb_function.return_vals) > 1:
+    node_return_value_types = ast.Tuple(
+      elts=[ast.Name(id=PdbType.get_by_id(return_vals_info[0]).get_name())
+            for return_vals_info in pdb_function.return_vals])
+  elif len(pdb_function.return_vals) == 1:
+    node_return_value_types = ast.Name(
+      id=PdbType.get_by_id(pdb_function.return_vals[0][0]).get_name())
+  else:
+    node_return_value_types = ast.Name(id="None")
+  
+  return ast.Return(value=node_return_value_types)
+
+
 def _get_ast_docstring_for_pdb_function(pdb_function):
   docstring = "\n"
   docstring += pdb_function.proc_blurb
@@ -213,6 +227,8 @@ def _get_ast_docstring_for_pdb_function(pdb_function):
   
   docstring += "\n"
   docstring += _get_pdb_docstring_param_info(pdb_function)
+  
+  docstring = _get_docstring_with_normalized_true_false_names(docstring)
   
   docstring = docstring.encode(pypredef_generator.TEXT_FILE_ENCODING)
   
@@ -273,15 +289,5 @@ def _get_pdb_params_docstring(pdb_param):
     pdb_param.description)
 
 
-def _get_ast_return_value_types_for_pdb_function(pdb_function):
-  if len(pdb_function.return_vals) > 1:
-    node_return_value_types = ast.Tuple(
-      elts=[ast.Name(id=PdbType.get_by_id(return_vals_info[0]).get_name())
-            for return_vals_info in pdb_function.return_vals])
-  elif len(pdb_function.return_vals) == 1:
-    node_return_value_types = ast.Name(
-      id=PdbType.get_by_id(pdb_function.return_vals[0][0]).get_name())
-  else:
-    node_return_value_types = ast.Name(id="None")
-  
-  return ast.Return(value=node_return_value_types)
+def _get_docstring_with_normalized_true_false_names(docstring):
+  return docstring.replace("FALSE", "False").replace("TRUE", "True")

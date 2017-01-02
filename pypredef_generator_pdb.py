@@ -243,7 +243,12 @@ def _convert_int_pdb_param_to_bool(pdb_param):
     + bool_param_description_true_false_regex_format.format(r"false", r"true", r"0", r"1"))
   
   pdb_bool_param_description_match_regex = (
-    r"(" + pdb_bool_param_description_match_regex_components + r"|\?$" + r")")
+    r"("
+    + pdb_bool_param_description_match_regex_components
+    + r"|true: .*false: "
+    + r"|false: .*true: "
+    + r"|\?$"
+    + r")")
   
   is_pdb_param_bool = (
     pdb_param.pdb_type.type_ is int

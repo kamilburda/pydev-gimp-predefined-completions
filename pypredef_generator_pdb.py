@@ -161,7 +161,10 @@ def generate_predefined_completions_for_gimp_pdb():
     pdb_member = getattr(gimp.pdb, pdb_member_name, None)
     
     if _is_member_pdb_function(pdb_member):
-      _insert_ast_node_for_pdb_function(pdb_member_name, pdb_member, node_pdb)
+      if _is_member_generated_temporary_pdb_function(pdb_member_name):
+        continue
+      else:
+        _insert_ast_node_for_pdb_function(pdb_member_name, pdb_member, node_pdb)
     else:
       pypredef_generator.insert_ast_node(pdb_member_name, gimp.pdb, node_pdb)
   
@@ -170,6 +173,10 @@ def generate_predefined_completions_for_gimp_pdb():
 
 def _is_member_pdb_function(member):
   return type(member).__name__ == "PDBFunction"
+
+
+def _is_member_generated_temporary_pdb_function(member_name):
+  return member_name.startswith("temp_procedure_")
 
 
 def _insert_ast_node_for_pdb_function(pdb_function_name, pdb_function, node_pdb):

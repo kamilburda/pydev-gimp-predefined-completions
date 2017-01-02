@@ -116,7 +116,7 @@ class PdbParam(object):
     return orig_name.replace("-", "_")
 
 
-def get_pdb_params(pdb_function):
+def get_pdb_params(pdb_function_params):
   """
   Return PDB function parameters and a boolean indicating whether `run_mode`
   parameter is in the parameter list.
@@ -125,7 +125,7 @@ def get_pdb_params(pdb_function):
   parameter list.
   """
   
-  pdb_params = [PdbParam(*pdb_param_info) for pdb_param_info in pdb_function.params]
+  pdb_params = [PdbParam(*pdb_param_info) for pdb_param_info in pdb_function_params]
   has_run_mode_param = _move_run_mode_param_to_end(pdb_params)
   
   return pdb_params, has_run_mode_param
@@ -192,7 +192,7 @@ def _get_ast_arguments_for_pdb_function(pdb_function):
   args = []
   defaults = []
   
-  pdb_params, has_run_mode_param = get_pdb_params(pdb_function)
+  pdb_params, has_run_mode_param = get_pdb_params(pdb_function.params)
   
   if has_run_mode_param:
     defaults.append(ast.Name(id="gimpenums.RUN_NONINTERACTIVE"))
@@ -218,32 +218,38 @@ def _get_ast_return_value_types_for_pdb_function(pdb_function):
 
 
 def _get_ast_docstring_for_pdb_function(pdb_function):
-  docstring = "\n"
-  docstring += pdb_function.proc_blurb
-  docstring += "\n\n"
+  docstring = ""
+  
+  if pdb_function.proc_blurb:
+    docstring += pdb_function.proc_blurb
   
   if pdb_function.proc_help and pdb_function.proc_help != pdb_function.proc_blurb:
-    docstring += pdb_function.proc_help + "\n"
+    docstring += "\n\n"
+    docstring += pdb_function.proc_help
   
-  docstring += "\n"
-  docstring += _get_pdb_docstring_param_info(pdb_function)
+  docstring += _get_pdb_docstring_for_params(pdb_function.params, "Parameters:")
   
-  docstring = _get_docstring_with_normalized_true_false_names(docstring)
+  docstring = _get_normalized_true_false_names(docstring)
+  docstring = "\n" + docstring.strip() + "\n"
   
   docstring = docstring.encode(pypredef_generator.TEXT_FILE_ENCODING)
   
   return ast.Expr(value=ast.Str(s=docstring))
 
 
-def _get_pdb_docstring_param_info(pdb_function):
+def _get_pdb_docstring_for_params(pdb_function_params, docstring_heading):
   params_docstring = ""
-  pdb_params, unused_ = get_pdb_params(pdb_function)
+  pdb_params, unused_ = get_pdb_params(pdb_function_params)
   
   if pdb_params:
-    params_docstring += "Parameters:\n"
+    params_docstring += "\n\n"
+    params_docstring += "{0}\n".format(docstring_heading)
+    
     for pdb_param in pdb_params:
       _convert_int_pdb_param_to_bool(pdb_param)
       params_docstring += _get_pdb_params_docstring(pdb_param) + "\n"
+    
+    params_docstring.rstrip("\n")
   
   return params_docstring
 
@@ -289,5 +295,5 @@ def _get_pdb_params_docstring(pdb_param):
     pdb_param.description)
 
 
-def _get_docstring_with_normalized_true_false_names(docstring):
+def _get_normalized_true_false_names(docstring):
   return docstring.replace("FALSE", "False").replace("TRUE", "True")

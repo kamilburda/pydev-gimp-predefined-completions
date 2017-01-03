@@ -240,8 +240,12 @@ def _get_ast_docstring_for_pdb_function(
   
   docstring += _get_pdb_docstring_for_params(
     pdb_function.params, "Parameters:",
-    additional_param_processing_callbacks=[_convert_int_pdb_param_to_bool])
-  docstring += _get_pdb_docstring_for_params(pdb_function.return_vals, "Returns:")
+    additional_param_processing_callbacks=[
+      PdbParamIntToBoolConverter.convert,
+      GimpenumsNamesPythonizer.pythonize])
+  docstring += _get_pdb_docstring_for_params(
+    pdb_function.return_vals, "Returns:",
+    additional_param_processing_callbacks=[GimpenumsNamesPythonizer.pythonize])
   
   if additional_docstring_processing_callbacks:
     for process_docstring in additional_docstring_processing_callbacks:
@@ -254,8 +258,9 @@ def _get_ast_docstring_for_pdb_function(
   return ast.Expr(value=ast.Str(s=docstring))
 
 
-def _get_pdb_docstring_for_params(pdb_function_params, docstring_heading,
-                                  additional_param_processing_callbacks=None):
+def _get_pdb_docstring_for_params(
+      pdb_function_params, docstring_heading, additional_param_processing_callbacks=None):
+  
   params_docstring = ""
   if additional_param_processing_callbacks is None:
     additional_param_processing_callbacks = []
@@ -269,14 +274,14 @@ def _get_pdb_docstring_for_params(pdb_function_params, docstring_heading,
     for pdb_param in pdb_params:
       for process_pdb_param in additional_param_processing_callbacks:
         process_pdb_param(pdb_param)
-      params_docstring += _get_pdb_params_docstring(pdb_param) + "\n"
+      params_docstring += _get_pdb_param_docstring(pdb_param) + "\n"
     
     params_docstring = params_docstring.rstrip("\n")
   
   return params_docstring
 
 
-def _get_pdb_params_docstring(pdb_param):
+def _get_pdb_param_docstring(pdb_param):
   return "{0} ({1}): {2}".format(
     pdb_param.name,
     pdb_param.pdb_type.get_name(include_base_type=True),
@@ -290,35 +295,97 @@ def _pythonize_true_false_names(docstring):
   return docstring.replace("FALSE", "False").replace("TRUE", "True")
 
 
-def _convert_int_pdb_param_to_bool(pdb_param):
-  bool_param_description_true_false_regex_format = (
+class PdbParamIntToBoolConverter(object):
+  
+  _BOOL_PARAM_DESCRIPTION_TRUE_FALSE_REGEX_FORMAT = (
     r"[\.:]? *\(?{0}(  *or  *| *[/,] *){1}\)?"
     r"|[\.:]? *\{{ *{0}( *\({2}\))?, *{1}( *\({3}\))? *\}}")
   
-  pdb_bool_param_description_match_regex_components = (
-    bool_param_description_true_false_regex_format.format(r"true", r"false", r"1", r"0")
+  _PDB_BOOL_PARAM_DESCRIPTION_MATCH_REGEX_COMPONENTS = (
+    _BOOL_PARAM_DESCRIPTION_TRUE_FALSE_REGEX_FORMAT.format(r"true", r"false", r"1", r"0")
     + r"|"
-    + bool_param_description_true_false_regex_format.format(r"false", r"true", r"0", r"1"))
+    + _BOOL_PARAM_DESCRIPTION_TRUE_FALSE_REGEX_FORMAT.format(r"false", r"true", r"0", r"1"))
   
-  pdb_bool_param_description_match_regex = (
+  _PDB_BOOL_PARAM_DESCRIPTION_MATCH_REGEX = (
     r"("
-    + pdb_bool_param_description_match_regex_components
+    + _PDB_BOOL_PARAM_DESCRIPTION_MATCH_REGEX_COMPONENTS
     + r"|true: .*false: "
     + r"|false: .*true: "
     + r"|\?$"
     + r")")
   
-  is_pdb_param_bool = (
-    pdb_param.pdb_type.type_ is int
-    and re.search(
-      pdb_bool_param_description_match_regex,
-      pdb_param.description, flags=re.UNICODE | re.IGNORECASE))
+  _PDB_BOOL_PARAM_DESCRIPTION_SUBSTITUTE_REGEX = (
+    r"(" + _PDB_BOOL_PARAM_DESCRIPTION_MATCH_REGEX_COMPONENTS + r")$")
   
-  if is_pdb_param_bool:
-    pdb_bool_param_description_substitute_regex = (
-      r"(" + pdb_bool_param_description_match_regex_components + r")$")
+  @classmethod
+  def convert(cls, pdb_param):
+    if cls._is_pdb_param_bool(pdb_param):
+      pdb_param.pdb_type = PdbType(pdb_param.pdb_type.type_, bool)
+      pdb_param.description = re.sub(
+        cls._PDB_BOOL_PARAM_DESCRIPTION_SUBSTITUTE_REGEX, "",
+        pdb_param.description, flags=re.UNICODE | re.IGNORECASE)
+  
+  @classmethod
+  def _is_pdb_param_bool(cls, pdb_param):
+    return (
+      pdb_param.pdb_type.type_ is int
+      and re.search(
+        cls._PDB_BOOL_PARAM_DESCRIPTION_MATCH_REGEX,
+        pdb_param.description, flags=re.UNICODE | re.IGNORECASE))
+
+
+class GimpenumsNamesPythonizer(object):
+  
+  _gimpenums_names_map = {}
+  
+  @classmethod
+  def pythonize(cls, pdb_param):
+    cls._fill_gimpenums_names_map()
     
-    pdb_param.pdb_type = PdbType(pdb_param.pdb_type.type_, bool)
-    pdb_param.description = re.sub(
-      pdb_bool_param_description_substitute_regex, "",
-      pdb_param.description, flags=re.UNICODE | re.IGNORECASE)
+    pdb_param_description_parts = cls._get_param_description_parts(pdb_param.description)
+    if not pdb_param_description_parts:
+      return
+    
+    pdb_param.description = "".join(
+      [pdb_param_description_parts[0],
+       cls._pythonize_enum_names(pdb_param_description_parts[1]),
+       pdb_param_description_parts[2]])
+  
+  @classmethod
+  def _fill_gimpenums_names_map(cls):
+    if not cls._gimpenums_names_map:
+      python_gimpenums_names = [
+        member for member in dir(gimpenums)
+        if re.match(r"[A-Z][A-Z0-9_]*$", member) and member not in ["TRUE", "FALSE"]]
+      
+      for python_enum_name in python_gimpenums_names:
+        pdb_enum_name = python_enum_name.replace("_", "-")
+        cls._gimpenums_names_map[pdb_enum_name] = gimpenums.__name__ + "." + python_enum_name
+  
+  @classmethod
+  def _pythonize_enum_names(cls, enums):
+    enum_strings = re.split(r", *", enums)
+    processed_enum_strings = []
+    
+    for enum_string in enum_strings:
+      enum_string_components = re.split(r"^([A-Z][A-Z0-9-]+) *(\([0-9]+\))$", enum_string)
+      enum_string_components = [component for component in enum_string_components if component]
+      
+      if len(enum_string_components) == 2:
+        enum_name, enum_number_string = enum_string_components
+        if enum_name in cls._gimpenums_names_map:
+          enum_name = cls._gimpenums_names_map[enum_name]
+        
+        processed_enum_strings.append("{0} {1}".format(enum_name, enum_number_string))
+      else:
+        processed_enum_strings.append(enum_string)
+    
+    return ", ".join(processed_enum_strings)
+  
+  @classmethod
+  def _get_param_description_parts(cls, param_description):
+    match = re.search(r"(.*{ *)(.*?)( *})$", param_description)
+    if match:
+      return match.groups()
+    else:
+      return None

@@ -190,7 +190,9 @@ def _get_ast_node_for_pdb_function(pdb_function):
     name=pdb_function.proc_name,
     args=_get_ast_arguments_for_pdb_function(pdb_function),
     body=[
-      _get_ast_docstring_for_pdb_function(pdb_function),
+      _get_ast_docstring_for_pdb_function(
+        pdb_function,
+        additional_docstring_processing_callbacks=[_pythonize_true_false_names]),
       _get_ast_return_value_types_for_pdb_function(pdb_function)],
     decorator_list=[])
 
@@ -224,7 +226,9 @@ def _get_ast_return_value_types_for_pdb_function(pdb_function):
   return ast.Return(value=node_return_value_types)
 
 
-def _get_ast_docstring_for_pdb_function(pdb_function):
+def _get_ast_docstring_for_pdb_function(
+      pdb_function, additional_docstring_processing_callbacks=None):
+  
   docstring = ""
   
   if pdb_function.proc_blurb:
@@ -239,7 +243,10 @@ def _get_ast_docstring_for_pdb_function(pdb_function):
     additional_param_processing_callbacks=[_convert_int_pdb_param_to_bool])
   docstring += _get_pdb_docstring_for_params(pdb_function.return_vals, "Returns:")
   
-  docstring = _get_normalized_true_false_names(docstring)
+  if additional_docstring_processing_callbacks:
+    for process_docstring in additional_docstring_processing_callbacks:
+      docstring = process_docstring(docstring)
+  
   docstring = "\n" + docstring.strip() + "\n"
   
   docstring = docstring.encode(pypredef_generator.TEXT_FILE_ENCODING)
@@ -276,7 +283,10 @@ def _get_pdb_params_docstring(pdb_param):
     pdb_param.description)
 
 
-def _get_normalized_true_false_names(docstring):
+#===============================================================================
+
+
+def _pythonize_true_false_names(docstring):
   return docstring.replace("FALSE", "False").replace("TRUE", "True")
 
 

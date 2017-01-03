@@ -125,10 +125,18 @@ def get_pdb_params(pdb_function_params):
   parameter list.
   """
   
-  pdb_params = [PdbParam(*pdb_param_info) for pdb_param_info in pdb_function_params]
+  pdb_params = _get_pdb_params(pdb_function_params)
   has_run_mode_param = _move_run_mode_param_to_end(pdb_params)
   
   return pdb_params, has_run_mode_param
+
+
+def get_pdb_return_values(pdb_function_return_values):
+  return _get_pdb_params(pdb_function_return_values)
+
+
+def _get_pdb_params(pdb_function_params):
+  return [PdbParam(*pdb_param_info) for pdb_param_info in pdb_function_params]
 
 
 def _move_run_mode_param_to_end(pdb_params):
@@ -241,12 +249,13 @@ def _get_ast_docstring_for_pdb_function(
     docstring += pdb_function.proc_help
   
   docstring += _get_pdb_docstring_for_params(
-    pdb_function.params, "Parameters:",
+    get_pdb_params(pdb_function.params)[0], "Parameters:",
     additional_param_processing_callbacks=[
       _PdbParamIntToBoolConverter.convert,
       _GimpenumsNamePythonizer.pythonize])
+  
   docstring += _get_pdb_docstring_for_params(
-    pdb_function.return_vals, "Returns:",
+    get_pdb_return_values(pdb_function.return_vals), "Returns:",
     additional_param_processing_callbacks=[_GimpenumsNamePythonizer.pythonize])
   
   if additional_docstring_processing_callbacks:
@@ -261,13 +270,11 @@ def _get_ast_docstring_for_pdb_function(
 
 
 def _get_pdb_docstring_for_params(
-      pdb_function_params, docstring_heading, additional_param_processing_callbacks=None):
+      pdb_params, docstring_heading, additional_param_processing_callbacks=None):
   
   params_docstring = ""
   if additional_param_processing_callbacks is None:
     additional_param_processing_callbacks = []
-  
-  pdb_params, unused_ = get_pdb_params(pdb_function_params)
   
   if pdb_params:
     params_docstring += "\n\n"

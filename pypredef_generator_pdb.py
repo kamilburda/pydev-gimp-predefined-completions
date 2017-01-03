@@ -192,7 +192,9 @@ def _get_ast_node_for_pdb_function(pdb_function):
     body=[
       _get_ast_docstring_for_pdb_function(
         pdb_function,
-        additional_docstring_processing_callbacks=[_pythonize_true_false_names]),
+        additional_docstring_processing_callbacks=[
+          _pythonize_true_false_names,
+          _PdbFunctionNamePythonizer.pythonize]),
       _get_ast_return_value_types_for_pdb_function(pdb_function)],
     decorator_list=[])
 
@@ -241,11 +243,11 @@ def _get_ast_docstring_for_pdb_function(
   docstring += _get_pdb_docstring_for_params(
     pdb_function.params, "Parameters:",
     additional_param_processing_callbacks=[
-      PdbParamIntToBoolConverter.convert,
-      GimpenumsNamesPythonizer.pythonize])
+      _PdbParamIntToBoolConverter.convert,
+      _GimpenumsNamePythonizer.pythonize])
   docstring += _get_pdb_docstring_for_params(
     pdb_function.return_vals, "Returns:",
-    additional_param_processing_callbacks=[GimpenumsNamesPythonizer.pythonize])
+    additional_param_processing_callbacks=[_GimpenumsNamePythonizer.pythonize])
   
   if additional_docstring_processing_callbacks:
     for process_docstring in additional_docstring_processing_callbacks:
@@ -295,7 +297,46 @@ def _pythonize_true_false_names(docstring):
   return docstring.replace("FALSE", "False").replace("TRUE", "True")
 
 
-class PdbParamIntToBoolConverter(object):
+class _PdbFunctionNamePythonizer(object):
+  
+  _pdb_function_names_map = {}
+  _pdb_function_names_pattern = None
+  
+  @classmethod
+  def pythonize(cls, docstring):
+    def _pythonize_function_name(match):
+      return "'{0}'".format(cls._get_pdb_function_names_map()[match.group(1)])
+    
+    return cls._get_pdb_function_names_pattern().sub(_pythonize_function_name, docstring)
+  
+  @classmethod
+  def _get_pdb_function_names_map(cls):
+    if not cls._pdb_function_names_map:
+      cls._pdb_function_names_map = {
+        pdb_member_name.replace("_", "-"): "pdb." + pdb_member_name
+        for pdb_member_name in dir(gimp.pdb)
+        if (_is_member_pdb_function(getattr(gimp.pdb, pdb_member_name, None))
+            and not _is_member_generated_temporary_pdb_function(pdb_member_name))
+      }
+    
+    return cls._pdb_function_names_map
+  
+  @classmethod
+  def _get_pdb_function_names_pattern(cls):
+    if cls._pdb_function_names_pattern is None:
+      pdb_function_names_regex = (
+        r"'\b("
+        + r"|".join(
+            re.escape(pdb_function_name)
+            for pdb_function_name in cls._get_pdb_function_names_map())
+        + r")\b'")
+      
+      cls._pdb_function_names_pattern = re.compile(pdb_function_names_regex, flags=re.UNICODE)
+    
+    return cls._pdb_function_names_pattern
+
+
+class _PdbParamIntToBoolConverter(object):
   
   _BOOL_PARAM_DESCRIPTION_TRUE_FALSE_REGEX_FORMAT = (
     r"[\.:]? *\(?{0}(  *or  *| *[/,] *){1}\)?"
@@ -334,14 +375,12 @@ class PdbParamIntToBoolConverter(object):
         pdb_param.description, flags=re.UNICODE | re.IGNORECASE))
 
 
-class GimpenumsNamesPythonizer(object):
+class _GimpenumsNamePythonizer(object):
   
   _gimpenums_names_map = {}
   
   @classmethod
   def pythonize(cls, pdb_param):
-    cls._fill_gimpenums_names_map()
-    
     pdb_param_description_parts = cls._get_param_description_parts(pdb_param.description)
     if not pdb_param_description_parts:
       return
@@ -352,7 +391,7 @@ class GimpenumsNamesPythonizer(object):
        pdb_param_description_parts[2]])
   
   @classmethod
-  def _fill_gimpenums_names_map(cls):
+  def _get_gimpenums_names_map(cls):
     if not cls._gimpenums_names_map:
       python_gimpenums_names = [
         member for member in dir(gimpenums)
@@ -361,6 +400,8 @@ class GimpenumsNamesPythonizer(object):
       for python_enum_name in python_gimpenums_names:
         pdb_enum_name = python_enum_name.replace("_", "-")
         cls._gimpenums_names_map[pdb_enum_name] = gimpenums.__name__ + "." + python_enum_name
+    
+    return cls._gimpenums_names_map
   
   @classmethod
   def _pythonize_enum_names(cls, enums):
@@ -373,8 +414,8 @@ class GimpenumsNamesPythonizer(object):
       
       if len(enum_string_components) == 2:
         enum_name, enum_number_string = enum_string_components
-        if enum_name in cls._gimpenums_names_map:
-          enum_name = cls._gimpenums_names_map[enum_name]
+        if enum_name in cls._get_gimpenums_names_map():
+          enum_name = cls._get_gimpenums_names_map()[enum_name]
         
         processed_enum_strings.append("{0} {1}".format(enum_name, enum_number_string))
       else:

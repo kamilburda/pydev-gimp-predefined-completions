@@ -117,26 +117,21 @@ class PdbParam(object):
 
 
 def get_pdb_params(pdb_function_params):
+  return [PdbParam(*pdb_param_info) for pdb_param_info in pdb_function_params]
+
+
+def get_pdb_params_with_fixed_run_mode(pdb_function_params):
   """
   Return PDB function parameters and a boolean indicating whether `run_mode`
   parameter is in the parameter list.
   
-  If `run_mode` in the parameter list, it is guaranteed to be at the end of the
-  parameter list.
+  If `run_mode` is in the parameter list, it is moved to the end of the list.
   """
   
-  pdb_params = _get_pdb_params(pdb_function_params)
+  pdb_params = get_pdb_params(pdb_function_params)
   has_run_mode_param = _move_run_mode_param_to_end(pdb_params)
   
   return pdb_params, has_run_mode_param
-
-
-def get_pdb_return_values(pdb_function_return_values):
-  return _get_pdb_params(pdb_function_return_values)
-
-
-def _get_pdb_params(pdb_function_params):
-  return [PdbParam(*pdb_param_info) for pdb_param_info in pdb_function_params]
 
 
 def _move_run_mode_param_to_end(pdb_params):
@@ -157,6 +152,8 @@ def _get_run_mode_param_index(pdb_params):
   
   return None
 
+
+_DEFAULT_RUN_MODE_NAME = "gimpenums.RUN_NONINTERACTIVE"
 
 #===============================================================================
 
@@ -211,10 +208,10 @@ def _get_ast_arguments_for_pdb_function(pdb_function):
   args = []
   defaults = []
   
-  pdb_params, has_run_mode_param = get_pdb_params(pdb_function.params)
+  pdb_params, has_run_mode_param = get_pdb_params_with_fixed_run_mode(pdb_function.params)
   
   if has_run_mode_param:
-    defaults.append(ast.Name(id="gimpenums.RUN_NONINTERACTIVE"))
+    defaults.append(ast.Name(id=_DEFAULT_RUN_MODE_NAME))
   
   for pdb_param in pdb_params:
     args.append(pdb_param.name)
@@ -249,13 +246,13 @@ def _get_ast_docstring_for_pdb_function(
     docstring += pdb_function.proc_help
   
   docstring += _get_pdb_docstring_for_params(
-    get_pdb_params(pdb_function.params)[0], "Parameters:",
+    get_pdb_params_with_fixed_run_mode(pdb_function.params)[0], "Parameters:",
     additional_param_processing_callbacks=[
       _PdbParamIntToBoolConverter.convert,
       _GimpenumsNamePythonizer.pythonize])
   
   docstring += _get_pdb_docstring_for_params(
-    get_pdb_return_values(pdb_function.return_vals), "Returns:",
+    get_pdb_params(pdb_function.return_vals), "Returns:",
     additional_param_processing_callbacks=[_GimpenumsNamePythonizer.pythonize])
   
   if additional_docstring_processing_callbacks:

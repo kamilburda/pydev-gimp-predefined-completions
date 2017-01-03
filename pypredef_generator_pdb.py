@@ -305,7 +305,7 @@ class _PdbFunctionNamePythonizer(object):
   @classmethod
   def pythonize(cls, docstring):
     def _pythonize_function_name(match):
-      return "'{0}'".format(cls._get_pdb_function_names_map()[match.group(1)])
+      return "`{0}`".format(cls._get_pdb_function_names_map()[match.group(1)])
     
     return cls._get_pdb_function_names_pattern().sub(_pythonize_function_name, docstring)
   

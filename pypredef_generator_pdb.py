@@ -101,7 +101,7 @@ class PdbParam(object):
     self.description = (
       description.decode(pypredef_generator.TEXT_FILE_ENCODING) if description is not None else "")
     self.pdb_type = PdbType.get_by_id(pdb_type_id)
-    self.name = self._get_param_name(self._orig_name)
+    self.name = pythonize_string(self._orig_name)
   
   @property
   def pdb_type_id(self):
@@ -110,10 +110,14 @@ class PdbParam(object):
   @property
   def orig_name(self):
     return self._orig_name
-  
-  @classmethod
-  def _get_param_name(cls, orig_name):
-    return orig_name.replace("-", "_")
+
+
+def pythonize_string(str_):
+  return str_.replace("-", "_")
+
+
+def unpythonize_string(str_):
+  return str_.replace("_", "-")
 
 
 def get_pdb_params(pdb_function_params):
@@ -154,6 +158,43 @@ def _get_run_mode_param_index(pdb_params):
 
 
 _DEFAULT_RUN_MODE_NAME = "gimpenums.RUN_NONINTERACTIVE"
+
+#===============================================================================
+
+
+class MultiStringRegexPattern(object):
+  
+  def __init__(self, matches_and_replacements, get_regex_for_matches_func):
+    self._matches_and_replacements = matches_and_replacements
+    self._get_regex_for_matches_func = get_regex_for_matches_func
+    
+    self._pattern = None
+  
+  def get_pattern(self):
+    if self._pattern is None:
+      self._pattern = re.compile(
+        self._get_regex_for_matches_func(self._get_matches_regex_component()), flags=re.UNICODE)
+    
+    return self._pattern
+  
+  def _get_matches_regex_component(self):
+    return (
+      r"("
+      + r"|".join(
+          re.escape(match_string) for match_string in self._matches_and_replacements)
+      + r")")
+  
+  def sub(self, replacement, str_):
+    return self.get_pattern().sub(replacement, str_)
+
+
+def split_param_description(param_description, regex):
+  match = re.search(regex, param_description)
+  if match is not None:
+    return match.groups()
+  else:
+    return None
+
 
 #===============================================================================
 
@@ -199,7 +240,8 @@ def _get_ast_node_for_pdb_function(pdb_function):
         pdb_function,
         additional_docstring_processing_callbacks=[
           _pythonize_true_false_names,
-          _PdbFunctionNamePythonizer.pythonize]),
+          _PdbFunctionNamePythonizer.pythonize,
+          _PdbParamNamePythonizer(get_pdb_params(pdb_function.params)).pythonize_docstring]),
       _get_ast_return_value_types_for_pdb_function(pdb_function)],
     decorator_list=[])
 
@@ -249,7 +291,8 @@ def _get_ast_docstring_for_pdb_function(
     get_pdb_params_with_fixed_run_mode(pdb_function.params)[0], "Parameters:",
     additional_param_processing_callbacks=[
       _PdbParamIntToBoolConverter.convert,
-      _GimpenumsNamePythonizer.pythonize])
+      _GimpenumsNamePythonizer.pythonize,
+      _PdbParamNamePythonizer(get_pdb_params(pdb_function.params)).pythonize_param])
   
   docstring += _get_pdb_docstring_for_params(
     get_pdb_params(pdb_function.return_vals), "Returns:",
@@ -301,45 +344,6 @@ def _pythonize_true_false_names(docstring):
   return docstring.replace("FALSE", "False").replace("TRUE", "True")
 
 
-class _PdbFunctionNamePythonizer(object):
-  
-  _pdb_function_names_map = {}
-  _pdb_function_names_pattern = None
-  
-  @classmethod
-  def pythonize(cls, docstring):
-    def _pythonize_function_name(match):
-      return "`{0}`".format(cls._get_pdb_function_names_map()[match.group(1)])
-    
-    return cls._get_pdb_function_names_pattern().sub(_pythonize_function_name, docstring)
-  
-  @classmethod
-  def _get_pdb_function_names_map(cls):
-    if not cls._pdb_function_names_map:
-      cls._pdb_function_names_map = {
-        pdb_member_name.replace("_", "-"): "pdb." + pdb_member_name
-        for pdb_member_name in dir(gimp.pdb)
-        if (_is_member_pdb_function(getattr(gimp.pdb, pdb_member_name, None))
-            and not _is_member_generated_temporary_pdb_function(pdb_member_name))
-      }
-    
-    return cls._pdb_function_names_map
-  
-  @classmethod
-  def _get_pdb_function_names_pattern(cls):
-    if cls._pdb_function_names_pattern is None:
-      pdb_function_names_regex = (
-        r"'\b("
-        + r"|".join(
-            re.escape(pdb_function_name)
-            for pdb_function_name in cls._get_pdb_function_names_map())
-        + r")\b'")
-      
-      cls._pdb_function_names_pattern = re.compile(pdb_function_names_regex, flags=re.UNICODE)
-    
-    return cls._pdb_function_names_pattern
-
-
 class _PdbParamIntToBoolConverter(object):
   
   _BOOL_PARAM_DESCRIPTION_TRUE_FALSE_REGEX_FORMAT = (
@@ -379,20 +383,88 @@ class _PdbParamIntToBoolConverter(object):
         pdb_param.description, flags=re.UNICODE | re.IGNORECASE))
 
 
+class _PdbFunctionNamePythonizer(object):
+  
+  _pdb_function_names_map = {}
+  _pdb_function_names_pattern = MultiStringRegexPattern(
+    _pdb_function_names_map, lambda matches_regex: r"'\b" + matches_regex + r"\b'")
+  
+  @classmethod
+  def pythonize(cls, docstring):
+    def _pythonize_function_name(match):
+      return "`{0}`".format(cls._pdb_function_names_map[match.group(1)])
+    
+    cls._fill_pdb_function_names_map()
+    
+    return cls._pdb_function_names_pattern.sub(_pythonize_function_name, docstring)
+  
+  @classmethod
+  def _fill_pdb_function_names_map(cls):
+    if not cls._pdb_function_names_map:
+      for pdb_member_name in dir(gimp.pdb):
+        if (_is_member_pdb_function(getattr(gimp.pdb, pdb_member_name, None))
+            and not _is_member_generated_temporary_pdb_function(pdb_member_name)):
+          unpythonized_member_name = unpythonize_string(pdb_member_name)
+          cls._pdb_function_names_map[unpythonized_member_name] = "pdb." + pdb_member_name
+    
+    return cls._pdb_function_names_map
+
+
+class _PdbParamNamePythonizer(object):
+  
+  def __init__(self, pdb_params):
+    self._pdb_params = pdb_params
+    
+    self._pdb_param_names = {
+      pdb_param.orig_name: pdb_param.name for pdb_param in pdb_params}
+  
+    self._pdb_param_names_pattern = MultiStringRegexPattern(
+      self._pdb_param_names, lambda matches_regex: r"'\b" + matches_regex + r"\b'")
+  
+  def pythonize_param(self, pdb_param):
+    param_description_parts = split_param_description(
+      pdb_param.description, r"^(.*)\((.*?)\)$")
+    if not param_description_parts:
+      return
+    
+    pdb_param.description = "".join([
+      param_description_parts[0],
+      self._pythonize_param_name_in_description(param_description_parts[1])])
+  
+  def _pythonize_param_name_in_description(self, param_description_part):
+    components = re.split(r"( +[<>]=? +)", param_description_part)
+    processed_components = []
+    
+    for component in components:
+      if component in self._pdb_param_names:
+        processed_components.append(self._pdb_param_names[component])
+      else:
+        processed_components.append(component)
+    
+    return "({0})".format("".join(processed_components))
+  
+  def pythonize_docstring(self, docstring):
+    def _pythonize_param_name(match):
+      return "`{0}`".format(self._pdb_param_names[match.group(1)])
+    
+    return self._pdb_param_names_pattern.sub(_pythonize_param_name, docstring)
+
+
 class _GimpenumsNamePythonizer(object):
   
   _gimpenums_names_map = {}
   
   @classmethod
   def pythonize(cls, pdb_param):
-    pdb_param_description_parts = cls._get_param_description_parts(pdb_param.description)
+    pdb_param_description_parts = split_param_description(
+      pdb_param.description, r"(.*{ *)(.*?)( *})$")
     if not pdb_param_description_parts:
       return
     
-    pdb_param.description = "".join(
-      [pdb_param_description_parts[0],
-       cls._pythonize_enum_names(pdb_param_description_parts[1]),
-       pdb_param_description_parts[2]])
+    pdb_param.description = "".join([
+      pdb_param_description_parts[0],
+      cls._pythonize_enum_names(pdb_param_description_parts[1]),
+      pdb_param_description_parts[2]])
   
   @classmethod
   def _get_gimpenums_names_map(cls):
@@ -402,7 +474,7 @@ class _GimpenumsNamePythonizer(object):
         if re.match(r"[A-Z][A-Z0-9_]*$", member) and member not in ["TRUE", "FALSE"]]
       
       for python_enum_name in python_gimpenums_names:
-        pdb_enum_name = python_enum_name.replace("_", "-")
+        pdb_enum_name = unpythonize_string(python_enum_name)
         cls._gimpenums_names_map[pdb_enum_name] = gimpenums.__name__ + "." + python_enum_name
     
     return cls._gimpenums_names_map
@@ -426,11 +498,3 @@ class _GimpenumsNamePythonizer(object):
         processed_enum_strings.append(enum_string)
     
     return ", ".join(processed_enum_strings)
-  
-  @classmethod
-  def _get_param_description_parts(cls, param_description):
-    match = re.search(r"(.*{ *)(.*?)( *})$", param_description)
-    if match:
-      return match.groups()
-    else:
-      return None

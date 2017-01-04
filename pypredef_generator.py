@@ -65,7 +65,11 @@ def insert_ast_node(child_member_name, member, node_member):
     node_member.body.append(node_child_member)
     insert_ast_docstring(node_child_member, child_member)
   elif inspect.isroutine(child_member):
-    node_child_member = get_ast_node_for_routine(child_member)
+    if not inspect.isclass(member):
+      node_child_member = get_ast_node_for_function(child_member)
+    else:
+      node_child_member = get_ast_node_for_method(child_member)
+    
     node_member.body.append(node_child_member)
     insert_ast_docstring(node_child_member, child_member)
   else:
@@ -112,7 +116,7 @@ def get_ast_node_for_class(class_):
   return node_class
 
 
-def get_ast_node_for_routine(routine):
+def get_ast_node_for_function(routine):
   return ast.FunctionDef(
     name=routine.__name__,
     args=get_ast_arguments_for_routine(routine),

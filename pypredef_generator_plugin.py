@@ -21,17 +21,17 @@ import pypredef_generator_pdb
 #===============================================================================
 
 
-def generate_predefined_completions_for_pydev(generate_from_modules, generate_from_pdb):
-  if generate_from_modules:
+def generate_predefined_completions_for_pydev(generate_for_modules, generate_for_pdb):
+  if generate_for_modules:
     module_names = _get_module_names(pypredef_generator.MODULES_FILE_PATH)
   else:
     module_names = []
   
   gimp_progress = GimpProgress(
-    _get_num_progress_items(generate_from_modules, module_names, generate_from_pdb))
+    _get_num_progress_items(generate_for_modules, module_names, generate_for_pdb))
   gimp_progress.initialize()
   
-  if generate_from_modules:
+  if generate_for_modules:
     _make_dirs(pypredef_generator.PYPREDEF_FILES_DIR)
     
     for module_name in module_names:
@@ -39,7 +39,7 @@ def generate_predefined_completions_for_pydev(generate_from_modules, generate_fr
       pypredef_generator.generate_predefined_completions(module)
       gimp_progress.update()
   
-  if generate_from_pdb:
+  if generate_for_pdb:
     pypredef_generator_pdb.generate_predefined_completions_for_gimp_pdb()
     gimp_progress.update()
 
@@ -98,12 +98,12 @@ class GimpProgress(object):
     gimp.progress_update(self._num_finished_tasks / self.num_total_tasks)
   
 
-def _get_num_progress_items(generate_from_modules, module_names, generate_from_pdb):
+def _get_num_progress_items(generate_for_modules, module_names, generate_for_pdb):
   num_progress_items = 0
-  if generate_from_modules:
+  if generate_for_modules:
     num_progress_items += len(module_names)
   
-  if generate_from_pdb:
+  if generate_for_pdb:
     num_progress_items += 1
   
   return num_progress_items
@@ -125,9 +125,9 @@ gimpfu.register(
   label="Generate Predefined Completions for PyDev",
   imagetypes="",
   params=[
-    (gimpfu.PF_BOOL, "generate_from_modules", "Generate completions from modules?", True),
-    (gimpfu.PF_BOOL, "generate_from_pdb",
-     "Generate completions from GIMP PDB (procedural database)?", True)
+    (gimpfu.PF_BOOL, "generate_for_modules", "Generate completions for modules?", True),
+    (gimpfu.PF_BOOL, "generate_for_pdb",
+     "Generate completions for GIMP procedural database (PDB)?", True)
   ],
   results=[],
   function=generate_predefined_completions_for_pydev,

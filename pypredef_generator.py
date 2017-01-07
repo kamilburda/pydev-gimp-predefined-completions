@@ -64,8 +64,7 @@ def insert_ast_node(child_member_name, member, member_node):
     child_member_node = get_ast_node_for_import(child_member, member)
     member_node.body.insert(0, child_member_node)
   elif inspect.isclass(child_member) and _can_inspect_class_member(child_member_name):
-    child_member_node = get_ast_node_for_class(
-      child_member, module=member if isinstance(member_node, ast.Module) else None)
+    child_member_node = get_ast_node_for_class(child_member)
     member_node.body.append(child_member_node)
     insert_ast_docstring(child_member, child_member_node)
     
@@ -116,12 +115,12 @@ def get_relative_module_name(module, module_root):
   return ".".join(module_path_components)
 
 
-def get_ast_node_for_class(class_, module=None):
+def get_ast_node_for_class(class_):
   class_node = ast.ClassDef(
     name=class_.__name__,
     bases=[
       ast.Name(
-        id=get_full_class_name(base_class, module)) for base_class in class_.__bases__],
+        id=get_full_type_name(base_class)) for base_class in class_.__bases__],
     body=[],
     decorator_list=[])
   
@@ -130,15 +129,14 @@ def get_ast_node_for_class(class_, module=None):
   return class_node
 
 
-def get_full_class_name(class_, module=None):
-  if (hasattr(class_, "__module__") and module is not None
-      and module.__name__ != class_.__module__
-      and class_.__module__ != "__builtin__"):
-    return (
-      _get_module_name_without_internal_components(class_.__module__)
-      + "." + class_.__name__)
+def get_full_type_name(type_):
+  type_module = inspect.getmodule(type_)
+  
+  if (type_module and hasattr(type_module, "__name__")
+      and type_module.__name__ != "__builtin__"):
+    return ".".join([type_module.__name__, type_.__name__])
   else:
-    return class_.__name__
+    return type_.__name__
 
 
 def _get_external_module_names_for_base_classes(subclass):
@@ -237,26 +235,30 @@ def process_ast_nodes(member, member_node):
 
 def remove_redundant_methods_from_subclasses(member, member_node):
   class_nodes = [node for node in member_node.body if isinstance(node, ast.ClassDef)]
+  classes = _get_classes_from_member(class_nodes, member)
   
-  class_nodes_map = {node.name: node for node in class_nodes}
+  class_nodes_map = {}
+  class_node_names = {node.name: node for node in class_nodes}
+  for class_ in classes:
+    class_nodes_map[get_full_type_name(class_)] = class_node_names[class_.__name__]
+  
+  non_member_class_nodes_map = {}
+  
   method_nodes_for_classes = {}
-  
   visited_classes = set()
   
-  mro_for_classes = _get_mro_for_classes(class_nodes, member)
-  
-  for mro in mro_for_classes:
-    for class_index, class_ in reversed(list(enumerate(mro))):
-      if (_is_class_in_member(class_, member) and class_ not in visited_classes
-          and class_index + 1 < len(mro)):
-        class_node = class_nodes_map[class_.__name__]
+  for mro_for_class in (inspect.getmro(class_) for class_ in classes):
+    for class_index, class_ in reversed(list(enumerate(mro_for_class))):
+      if (get_full_type_name(class_) in class_nodes_map
+          and class_ not in visited_classes
+          and class_index + 1 < len(mro_for_class)):
+        class_node = class_nodes_map[get_full_type_name(class_)]
         method_nodes_for_class = _get_method_nodes_for_class_node(
           class_node, method_nodes_for_classes)
         
-        parent_class = mro[class_index + 1]
-        parent_class_node = _get_class_node(
-          parent_class, class_nodes_map,
-          module=member if isinstance(member_node, ast.Module) else None)
+        parent_class = mro_for_class[class_index + 1]
+        parent_class_node = _get_ast_node_for_non_member_class(
+          parent_class, non_member_class_nodes_map)
         method_nodes_for_parent_class = _get_method_nodes_for_class_node(
           parent_class_node, method_nodes_for_classes)
         
@@ -267,28 +269,22 @@ def remove_redundant_methods_from_subclasses(member, member_node):
         visited_classes.add(class_)
 
 
-def _get_mro_for_classes(class_nodes, member):
-  mro_for_classes = []
+def _get_classes_from_member(class_nodes, member):
+  classes = []
   
   for class_node in class_nodes:
     class_ = getattr(member, class_node.name, None)
     if class_ is not None:
-      mro_for_classes.append(inspect.getmro(class_))
+      classes.append(class_)
   
-  return mro_for_classes
+  return classes
 
 
-def _get_class_node(class_, class_nodes_map, module):
-  class_node = class_nodes_map.get(class_.__name__)
+def _get_ast_node_for_non_member_class(class_, non_member_class_nodes_map):
+  class_node = non_member_class_nodes_map.get(get_full_type_name(class_))
   if class_node is None:
-    class_node = _get_ast_node_for_non_member_class(class_, class_nodes_map, module)
-  
-  return class_node
-
-
-def _get_ast_node_for_non_member_class(class_, class_nodes_map, module):
-  class_node = get_ast_node_for_class(class_, module)
-  class_nodes_map[class_node.name] = class_node
+    class_node = get_ast_node_for_class(class_)
+    non_member_class_nodes_map[get_full_type_name(class_)] = class_node
   
   return class_node
 
@@ -304,10 +300,6 @@ def _get_method_nodes_for_class_node(class_node, method_nodes_for_classes):
 
 def _get_method_nodes(class_node):
   return [node for node in class_node.body if isinstance(node, ast.FunctionDef)]
-
-
-def _is_class_in_member(class_, member):
-  return hasattr(class_, "__name__") and hasattr(member, class_.__name__)
 
 
 def _is_same_routine_node_in_nodes(routine_node, routine_nodes):
@@ -347,12 +339,7 @@ def _routine_docstrings_equal(routine_node1, routine_node2):
 
 
 def _remove_ast_node(node, parent_node, member):
-  try:
-    node_index = parent_node.body.index(node)
-  except ValueError:
-    pass
-  else:
-    del parent_node.body[node_index]
+  del parent_node.body[parent_node.body.index(node)]
 
 
 def remove_duplicate_imports(member, member_node):

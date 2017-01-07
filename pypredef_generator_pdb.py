@@ -7,7 +7,6 @@ procedural database (PDB).
 
 from __future__ import absolute_import, print_function, division, unicode_literals
 
-import inspect
 import re
 
 import ast
@@ -42,22 +41,16 @@ class PdbType(object):
   
   def get_name(self, include_base_type=False):
     if include_base_type and self._base_type is not None:
-      return "{0}({1})".format(get_type_name(self._type_), get_type_name(self._base_type))
+      return (
+        "{0}({1})".format(
+          pypredef_generator.get_full_type_name(self._type_),
+          pypredef_generator.get_full_type_name(self._base_type)))
     else:
-      return get_type_name(self._type_)
+      return pypredef_generator.get_full_type_name(self._type_)
   
   @classmethod
   def get_by_id(cls, pdb_type_id):
     return _PDB_TYPES_MAP[pdb_type_id]
-
-
-def get_type_name(type_):
-  type_module = inspect.getmodule(type_)
-  
-  if type_module and hasattr(type_module, "__name__") and type_module.__name__ != "__builtin__":
-    return ".".join([type_module.__name__, type_.__name__])
-  else:
-    return type_.__name__
 
 
 _PDB_TYPE_ITEMS = [

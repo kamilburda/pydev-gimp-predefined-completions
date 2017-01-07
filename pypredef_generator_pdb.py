@@ -200,7 +200,7 @@ def split_param_description(param_description, regex):
 
 
 def generate_predefined_completions_for_gimp_pdb():
-  pdb_node = pypredef_generator.get_ast_node_for_root_module(gimp.pdb)
+  pdb_node = pypredef_generator.get_ast_node_for_module(gimp.pdb)
   
   for pdb_member_name in dir(gimp.pdb):
     pdb_member = getattr(gimp.pdb, pdb_member_name, None)

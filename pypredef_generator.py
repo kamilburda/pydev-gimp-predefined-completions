@@ -28,7 +28,7 @@ TEXT_FILE_ENCODING = "utf-8"
 
 
 def generate_predefined_completions(module):
-  module_node = get_ast_node_for_root_module(module)
+  module_node = get_ast_node_for_module(module)
   
   insert_ast_nodes(module, module_node)
   
@@ -89,7 +89,7 @@ def _can_inspect_class_member(class_member_name):
   return class_member_name != "__class__"
 
 
-def get_ast_node_for_root_module(root_module):
+def get_ast_node_for_module(module):
   return ast.Module(body=[])
 
 

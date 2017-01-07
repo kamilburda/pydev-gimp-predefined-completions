@@ -56,27 +56,28 @@ def insert_ast_nodes(member, member_node):
     insert_ast_node(child_member_name, member, member_node)
 
 
-def insert_ast_node(child_member_name, member, node_member):
+def insert_ast_node(child_member_name, member, member_node):
   child_member = getattr(member, child_member_name, None)
   
   if inspect.ismodule(child_member):
-    node_child_member = get_ast_node_for_module(child_member, member)
-    node_member.body.insert(0, node_child_member)
+    child_member_node = get_ast_node_for_module(child_member, member)
+    member_node.body.insert(0, child_member_node)
   elif inspect.isclass(child_member) and _can_inspect_class_member(child_member_name):
-    node_child_member = get_ast_node_for_class(child_member)
-    node_member.body.append(node_child_member)
-    insert_ast_docstring(node_child_member, child_member)
+    child_member_node = get_ast_node_for_class(
+      child_member, module=member if isinstance(member_node, ast.Module) else None)
+    member_node.body.append(child_member_node)
+    insert_ast_docstring(child_member, child_member_node)
   elif inspect.isroutine(child_member):
     if not inspect.isclass(member):
-      node_child_member = get_ast_node_for_function(child_member)
+      child_member_node = get_ast_node_for_function(child_member)
     else:
-      node_child_member = get_ast_node_for_method(child_member)
+      child_member_node = get_ast_node_for_method(child_member)
     
-    node_member.body.append(node_child_member)
-    insert_ast_docstring(node_child_member, child_member)
+    member_node.body.append(child_member_node)
+    insert_ast_docstring(child_member, child_member_node)
   else:
-    node_child_member = get_ast_node_for_member(child_member, child_member_name)
-    node_member.body.append(node_child_member)
+    child_member_node = get_ast_node_for_member(child_member, child_member_name)
+    member_node.body.append(child_member_node)
 
 
 def _can_inspect_class_member(class_member_name):
@@ -105,17 +106,34 @@ def get_relative_module_name(module, module_root):
   return ".".join(module_path_components)
 
 
-def get_ast_node_for_class(class_):
-  node_class = ast.ClassDef(
+def get_ast_node_for_class(class_, module=None):
+  class_node = ast.ClassDef(
     name=class_.__name__,
     bases=[
-      ast.Name(id=base_class.__name__) for base_class in class_.__bases__],
+      ast.Name(id=get_full_class_name(base_class, module)) for base_class in class_.__bases__],
     body=[],
     decorator_list=[])
   
-  insert_ast_nodes(class_, node_class)
+  insert_ast_nodes(class_, class_node)
   
-  return node_class
+  return class_node
+
+
+def get_full_class_name(class_, module=None):
+  if (hasattr(class_, "__module__") and module is not None
+      and module.__name__ != class_.__module__
+      and class_.__module__ != "__builtin__"):
+    return (
+      _get_module_name_without_internal_components(class_.__module__)
+      + "." + class_.__name__)
+  else:
+    return class_.__name__
+
+
+def _get_module_name_without_internal_components(module_name):
+  return ".".join(
+    module_name_component for module_name_component in module_name.split(".")
+    if not module_name_component.startswith("_"))
 
 
 def get_ast_node_for_function(routine):

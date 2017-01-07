@@ -231,5 +231,25 @@ def insert_ast_docstring(member, member_node):
 
 
 def process_ast_nodes(member, member_node):
-  pass
+  remove_duplicate_imports(member, member_node)
 
+
+def remove_duplicate_imports(member, member_node):
+  
+  class ImportDeduplicator(ast.NodeTransformer):
+    
+    import_node_names = set()
+    
+    def visit_Import(self, import_node):
+      for alias_index, alias in reversed(list(enumerate(import_node.names))):
+        if alias.name not in self.import_node_names:
+          self.import_node_names.add(alias.name)
+        else:
+          del import_node.names[alias_index]
+      
+      if import_node.names:
+        return import_node
+      else:
+        return None
+  
+  ImportDeduplicator().visit(member_node)

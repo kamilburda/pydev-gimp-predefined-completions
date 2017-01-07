@@ -231,7 +231,128 @@ def insert_ast_docstring(member, member_node):
 
 
 def process_ast_nodes(member, member_node):
+  remove_redundant_methods_from_subclasses(member, member_node)
   remove_duplicate_imports(member, member_node)
+
+
+def remove_redundant_methods_from_subclasses(member, member_node):
+  class_nodes = [node for node in member_node.body if isinstance(node, ast.ClassDef)]
+  
+  class_nodes_map = {node.name: node for node in class_nodes}
+  method_nodes_for_classes = {}
+  
+  visited_classes = set()
+  
+  mro_for_classes = _get_mro_for_classes(class_nodes, member)
+  
+  for mro in mro_for_classes:
+    for class_index, class_ in reversed(list(enumerate(mro))):
+      if (_is_class_in_member(class_, member) and class_ not in visited_classes
+          and class_index + 1 < len(mro)):
+        class_node = class_nodes_map[class_.__name__]
+        method_nodes_for_class = _get_method_nodes_for_class_node(
+          class_node, method_nodes_for_classes)
+        
+        parent_class = mro[class_index + 1]
+        parent_class_node = _get_class_node(
+          parent_class, class_nodes_map,
+          module=member if isinstance(member_node, ast.Module) else None)
+        method_nodes_for_parent_class = _get_method_nodes_for_class_node(
+          parent_class_node, method_nodes_for_classes)
+        
+        for method_node in list(method_nodes_for_class):
+          if _is_same_routine_node_in_nodes(method_node, method_nodes_for_parent_class):
+            _remove_ast_node(method_node, class_node, member)
+        
+        visited_classes.add(class_)
+
+
+def _get_mro_for_classes(class_nodes, member):
+  mro_for_classes = []
+  
+  for class_node in class_nodes:
+    class_ = getattr(member, class_node.name, None)
+    if class_ is not None:
+      mro_for_classes.append(inspect.getmro(class_))
+  
+  return mro_for_classes
+
+
+def _get_class_node(class_, class_nodes_map, module):
+  class_node = class_nodes_map.get(class_.__name__)
+  if class_node is None:
+    class_node = _get_ast_node_for_non_member_class(class_, class_nodes_map, module)
+  
+  return class_node
+
+
+def _get_ast_node_for_non_member_class(class_, class_nodes_map, module):
+  class_node = get_ast_node_for_class(class_, module)
+  class_nodes_map[class_node.name] = class_node
+  
+  return class_node
+
+
+def _get_method_nodes_for_class_node(class_node, method_nodes_for_classes):
+  method_nodes_for_class = method_nodes_for_classes.get(class_node.name)
+  if method_nodes_for_class is None:
+    method_nodes_for_class = _get_method_nodes(class_node)
+    method_nodes_for_classes[class_node.name] = method_nodes_for_class
+  
+  return method_nodes_for_class
+
+
+def _get_method_nodes(class_node):
+  return [node for node in class_node.body if isinstance(node, ast.FunctionDef)]
+
+
+def _is_class_in_member(class_, member):
+  return hasattr(class_, "__name__") and hasattr(member, class_.__name__)
+
+
+def _is_same_routine_node_in_nodes(routine_node, routine_nodes):
+  """
+  Return True if there is a routine node in `routine_nodes` with the same name,
+  signature and docstring as `routine_node`.
+  """
+  
+  for node in routine_nodes:
+    if routine_node.name == node.name:
+      return _routine_nodes_equal(routine_node, node)
+  
+  return False
+
+
+def _routine_nodes_equal(routine_node1, routine_node2):
+  return (_routine_signatures_equal(routine_node1, routine_node2)
+          and _routine_docstrings_equal(routine_node1, routine_node2))
+
+
+def _routine_signatures_equal(routine_node1, routine_node2):
+  return (
+    all(
+      routine_node1_arg_name.id == routine_node2_arg_name.id
+      for routine_node1_arg_name, routine_node2_arg_name
+      in zip(routine_node1.args.args, routine_node2.args.args))
+    and routine_node1.args.vararg == routine_node2.args.vararg
+    and routine_node1.args.kwarg == routine_node2.args.kwarg
+    and all(
+      routine_node1_default_name.id == routine_node2_default_name.id
+      for routine_node1_default_name, routine_node2_default_name
+      in zip(routine_node1.args.defaults, routine_node2.args.defaults)))
+
+
+def _routine_docstrings_equal(routine_node1, routine_node2):
+  return ast.get_docstring(routine_node1) == ast.get_docstring(routine_node2)
+
+
+def _remove_ast_node(node, parent_node, member):
+  try:
+    node_index = parent_node.body.index(node)
+  except ValueError:
+    pass
+  else:
+    del parent_node.body[node_index]
 
 
 def remove_duplicate_imports(member, member_node):

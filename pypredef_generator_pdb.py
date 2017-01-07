@@ -200,8 +200,8 @@ def split_param_description(param_description, regex):
 
 
 def generate_predefined_completions_for_gimp_pdb():
-  node_pdb = pypredef_generator.get_ast_node_for_root_module(gimp.pdb)
-  pypredef_generator.insert_ast_docstring(node_pdb, gimp.pdb)
+  pdb_node = pypredef_generator.get_ast_node_for_root_module(gimp.pdb)
+  pypredef_generator.insert_ast_docstring(pdb_node, gimp.pdb)
   
   for pdb_member_name in dir(gimp.pdb):
     pdb_member = getattr(gimp.pdb, pdb_member_name, None)
@@ -210,11 +210,11 @@ def generate_predefined_completions_for_gimp_pdb():
       if _is_member_generated_temporary_pdb_function(pdb_member_name):
         continue
       else:
-        _insert_ast_node_for_pdb_function(pdb_member_name, pdb_member, node_pdb)
+        _insert_ast_node_for_pdb_function(pdb_member_name, pdb_member, pdb_node)
     else:
-      pypredef_generator.insert_ast_node(pdb_member_name, gimp.pdb, node_pdb)
+      pypredef_generator.insert_ast_node(pdb_member_name, gimp.pdb, pdb_node)
   
-  pypredef_generator.write_pypredef_file("gimp.pdb", node_pdb)
+  pypredef_generator.write_pypredef_file("gimp.pdb", pdb_node)
 
 
 def _is_member_pdb_function(member):
@@ -225,10 +225,10 @@ def _is_member_generated_temporary_pdb_function(member_name):
   return member_name.startswith("temp_procedure_")
 
 
-def _insert_ast_node_for_pdb_function(pdb_function_name, pdb_function, node_pdb):
-  node_pdb_function = _get_ast_node_for_pdb_function(pdb_function)
-  node_pdb.body.append(node_pdb_function)
-  pypredef_generator.insert_ast_docstring(node_pdb_function, pdb_function)
+def _insert_ast_node_for_pdb_function(pdb_function_name, pdb_function, pdb_node):
+  pdb_function_node = _get_ast_node_for_pdb_function(pdb_function)
+  pdb_node.body.append(pdb_function_node)
+  pypredef_generator.insert_ast_docstring(pdb_function_node, pdb_function)
 
 
 def _get_ast_node_for_pdb_function(pdb_function):
@@ -263,16 +263,16 @@ def _get_ast_arguments_for_pdb_function(pdb_function):
 
 def _get_ast_return_value_types_for_pdb_function(pdb_function):
   if len(pdb_function.return_vals) > 1:
-    node_return_value_types = ast.Tuple(
+    return_value_types_node = ast.Tuple(
       elts=[ast.Name(id=PdbType.get_by_id(return_vals_info[0]).get_name())
             for return_vals_info in pdb_function.return_vals])
   elif len(pdb_function.return_vals) == 1:
-    node_return_value_types = ast.Name(
+    return_value_types_node = ast.Name(
       id=PdbType.get_by_id(pdb_function.return_vals[0][0]).get_name())
   else:
-    node_return_value_types = ast.Name(id="None")
+    return_value_types_node = ast.Name(id="None")
   
-  return ast.Return(value=node_return_value_types)
+  return ast.Return(value=return_value_types_node)
 
 
 def _get_ast_docstring_for_pdb_function(

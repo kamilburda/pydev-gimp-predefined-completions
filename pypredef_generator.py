@@ -28,18 +28,20 @@ TEXT_FILE_ENCODING = "utf-8"
 
 
 def generate_predefined_completions(module):
-  node_module = get_ast_node_for_root_module(module)
-  insert_ast_docstring(node_module, module)
+  module_node = get_ast_node_for_root_module(module)
+  insert_ast_docstring(module, module_node)
   
-  insert_ast_nodes(module, node_module)
+  insert_ast_nodes(module, module_node)
   
-  write_pypredef_file(module.__name__, node_module)
+  process_ast_nodes(module, module_node)
+  
+  write_pypredef_file(module.__name__, module_node)
 
 
-def write_pypredef_file(module_name, node_module):
+def write_pypredef_file(module_name, module_node):
   pypredef_file_path = _get_pypredef_file_path(module_name)
   with io.open(pypredef_file_path, "w", encoding=TEXT_FILE_ENCODING) as pypredef_file:
-    pypredef_file.write(astor.to_source(node_module).decode(TEXT_FILE_ENCODING))
+    pypredef_file.write(astor.to_source(module_node).decode(TEXT_FILE_ENCODING))
 
 
 def _get_pypredef_file_path(module_name):
@@ -49,9 +51,9 @@ def _get_pypredef_file_path(module_name):
 #===============================================================================
 
 
-def insert_ast_nodes(member, node_member):
+def insert_ast_nodes(member, member_node):
   for child_member_name in dir(member):
-    insert_ast_node(child_member_name, member, node_member)
+    insert_ast_node(child_member_name, member, member_node)
 
 
 def insert_ast_node(child_member_name, member, node_member):
@@ -87,10 +89,10 @@ def get_ast_node_for_root_module(root_module):
 
 def get_ast_node_for_module(module, module_root):
   return ast.Import(
-    names=[ast.alias(name=_get_relative_module_name(module, module_root), asname=None)])
+    names=[ast.alias(name=get_relative_module_name(module, module_root), asname=None)])
 
 
-def _get_relative_module_name(module, module_root):
+def get_relative_module_name(module, module_root):
   module_path_components = module.__name__.split(".")
   module_root_path_components = module_root.__name__.split(".")
   
@@ -175,7 +177,7 @@ def get_ast_arguments_for_routine(routine):
   return arguments
 
 
-def insert_ast_docstring(node_member, member):
+def insert_ast_docstring(member, member_node):
   member_dostring = inspect.getdoc(member)
   if member_dostring:
-    node_member.body.insert(0, ast.Expr(value=ast.Str(s=member_dostring)))
+    member_node.body.insert(0, ast.Expr(value=ast.Str(s=member_dostring)))

@@ -61,13 +61,17 @@ def insert_ast_node(child_member_name, member, member_node):
   child_member = getattr(member, child_member_name, None)
   
   if inspect.ismodule(child_member):
-    child_member_node = get_ast_node_for_module(child_member, member)
+    child_member_node = get_ast_node_for_import(child_member, member)
     member_node.body.insert(0, child_member_node)
   elif inspect.isclass(child_member) and _can_inspect_class_member(child_member_name):
     child_member_node = get_ast_node_for_class(
       child_member, module=member if isinstance(member_node, ast.Module) else None)
     member_node.body.append(child_member_node)
     insert_ast_docstring(child_member, child_member_node)
+    
+    external_module_names = _get_external_module_names_for_base_classes(child_member)
+    for module_name in reversed(external_module_names):
+      member_node.body.insert(0, get_ast_node_for_import_by_module_name(module_name))
   elif inspect.isroutine(child_member):
     if not inspect.isclass(member):
       child_member_node = get_ast_node_for_function(child_member)
@@ -89,9 +93,13 @@ def get_ast_node_for_root_module(root_module):
   return ast.Module(body=[])
 
 
-def get_ast_node_for_module(module, module_root):
+def get_ast_node_for_import(module, module_root):
   return ast.Import(
     names=[ast.alias(name=get_relative_module_name(module, module_root), asname=None)])
+
+
+def get_ast_node_for_import_by_module_name(module_name):
+  return ast.Import(names=[ast.alias(name=module_name, asname=None)])
 
 
 def get_relative_module_name(module, module_root):
@@ -99,7 +107,8 @@ def get_relative_module_name(module, module_root):
   module_root_path_components = module_root.__name__.split(".")
   
   for root_path_component in module_root_path_components:
-    if len(module_path_components) > 1 and root_path_component == module_path_components[0]:
+    if (len(module_path_components) > 1
+        and root_path_component == module_path_components[0]):
       del module_path_components[0]
     else:
       break
@@ -111,7 +120,8 @@ def get_ast_node_for_class(class_, module=None):
   class_node = ast.ClassDef(
     name=class_.__name__,
     bases=[
-      ast.Name(id=get_full_class_name(base_class, module)) for base_class in class_.__bases__],
+      ast.Name(
+        id=get_full_class_name(base_class, module)) for base_class in class_.__bases__],
     body=[],
     decorator_list=[])
   
@@ -129,6 +139,20 @@ def get_full_class_name(class_, module=None):
       + "." + class_.__name__)
   else:
     return class_.__name__
+
+
+def _get_external_module_names_for_base_classes(subclass):
+  external_modules = []
+  
+  for base_class in subclass.__bases__:
+    if (base_class.__module__ != subclass.__module__
+        and base_class.__module__ != "__builtin__"):
+      external_module_name = _get_module_name_without_internal_components(
+        base_class.__module__)
+      if external_module_name not in external_modules:
+        external_modules.append(external_module_name)
+  
+  return external_modules
 
 
 def _get_module_name_without_internal_components(module_name):
@@ -175,7 +199,8 @@ def get_ast_node_for_member(member, member_name=None):
   else:
     member_type_name = "None"
   
-  return ast.Assign(targets=[ast.Name(id=member_name)], value=ast.Name(id=member_type_name))
+  return ast.Assign(
+    targets=[ast.Name(id=member_name)], value=ast.Name(id=member_type_name))
 
 
 def get_ast_arguments_for_routine(routine):

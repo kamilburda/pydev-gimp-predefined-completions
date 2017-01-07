@@ -199,3 +199,11 @@ def insert_ast_docstring(member, member_node):
   member_dostring = inspect.getdoc(member)
   if member_dostring:
     member_node.body.insert(0, ast.Expr(value=ast.Str(s=member_dostring)))
+
+
+#===============================================================================
+
+
+def process_ast_nodes(member, member_node):
+  pass
+

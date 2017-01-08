@@ -7,6 +7,7 @@ introspection of module objects.
 
 from __future__ import absolute_import, print_function, division, unicode_literals
 
+import collections
 import inspect
 import io
 import os
@@ -247,6 +248,7 @@ def insert_ast_docstring(member, member_node):
 
 def process_ast_nodes(member, member_node):
   remove_redundant_methods_from_subclasses(member, member_node)
+  sort_classes_by_hierarchy(member, member_node)
   remove_duplicate_imports(member, member_node)
 
 
@@ -257,11 +259,7 @@ def remove_redundant_methods_from_subclasses(member, member_node):
   class_nodes = [node for node in member_node.body if isinstance(node, ast.ClassDef)]
   classes = _get_classes_from_member(class_nodes, member)
   
-  class_nodes_map = {}
-  class_node_names = {node.name: node for node in class_nodes}
-  for class_ in classes:
-    class_nodes_map[get_full_type_name(class_)] = class_node_names[class_.__name__]
-  
+  class_nodes_map = _get_class_nodes_map(classes, class_nodes)
   non_member_class_nodes_map = {}
   
   method_nodes_for_classes = {}
@@ -284,7 +282,7 @@ def remove_redundant_methods_from_subclasses(member, member_node):
         
         for method_node in list(method_nodes_for_class):
           if _is_same_routine_node_in_nodes(method_node, method_nodes_for_parent_class):
-            _remove_ast_node(method_node, class_node, member)
+            _remove_ast_node(method_node, class_node)
         
         visited_classes.add(class_)
 
@@ -298,6 +296,15 @@ def _get_classes_from_member(class_nodes, member):
       classes.append(class_)
   
   return classes
+
+
+def _get_class_nodes_map(classes, class_nodes):
+  class_nodes_map = {}
+  class_node_names = {node.name: node for node in class_nodes}
+  for class_ in classes:
+    class_nodes_map[get_full_type_name(class_)] = class_node_names[class_.__name__]
+  
+  return class_nodes_map
 
 
 def _get_ast_node_for_non_member_class(class_, non_member_class_nodes_map):
@@ -358,8 +365,48 @@ def _routine_docstrings_equal(routine_node1, routine_node2):
   return ast.get_docstring(routine_node1) == ast.get_docstring(routine_node2)
 
 
-def _remove_ast_node(node, parent_node, member):
+def _remove_ast_node(node, parent_node):
   del parent_node.body[parent_node.body.index(node)]
+
+
+#===============================================================================
+
+
+def sort_classes_by_hierarchy(member, member_node):
+  class_nodes = [node for node in member_node.body if isinstance(node, ast.ClassDef)]
+  
+  classes = _get_classes_from_member(class_nodes, member)
+  class_nodes_map = _get_class_nodes_map(classes, class_nodes)
+  
+  class_nodes_and_indices = collections.OrderedDict([
+    (node, node_index) for node_index, node in enumerate(member_node.body)
+    if isinstance(node, ast.ClassDef)])
+  class_nodes_new_order = collections.OrderedDict()
+  
+  for mro_for_class in reversed(list(inspect.getmro(class_) for class_ in classes)):
+    for class_ in mro_for_class:
+      if get_full_type_name(class_) in class_nodes_map:
+        class_node = class_nodes_map[get_full_type_name(class_)]
+        if class_node in class_nodes_new_order:
+          del class_nodes_new_order[class_node]
+        
+        class_nodes_new_order[class_node] = None
+  
+  _reverse_ordered_dict(class_nodes_new_order)
+  
+  for class_node in class_nodes_map.values():
+    _remove_ast_node(class_node, member_node)
+  
+  for orig_class_node, new_class_node in zip(
+        class_nodes_and_indices, class_nodes_new_order):
+    class_node_new_position = class_nodes_and_indices[orig_class_node]
+    member_node.body.insert(class_node_new_position, new_class_node)
+
+
+def _reverse_ordered_dict(ordered_dict):
+  for key, value in reversed(list(ordered_dict.items())):
+    del ordered_dict[key]
+    ordered_dict[key] = value
 
 
 #===============================================================================

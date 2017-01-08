@@ -64,7 +64,7 @@ def insert_ast_node(child_member_name, member, member_node):
     child_member_node = get_ast_node_for_import(child_member, member)
     member_node.body.insert(0, child_member_node)
   elif inspect.isclass(child_member) and _can_inspect_class_member(child_member_name):
-    child_member_node = get_ast_node_for_class(child_member)
+    child_member_node = get_ast_node_for_class(child_member, module_root=member)
     member_node.body.append(child_member_node)
     insert_ast_docstring(child_member, child_member_node)
     
@@ -115,12 +115,12 @@ def get_relative_module_name(module, module_root):
   return ".".join(module_path_components)
 
 
-def get_ast_node_for_class(class_):
+def get_ast_node_for_class(class_, module_root=None):
   class_node = ast.ClassDef(
     name=class_.__name__,
     bases=[
-      ast.Name(
-        id=get_full_type_name(base_class)) for base_class in class_.__bases__],
+      ast.Name(id=get_full_type_name(base_class, module_root))
+      for base_class in class_.__bases__],
     body=[],
     decorator_list=[])
   
@@ -129,12 +129,18 @@ def get_ast_node_for_class(class_):
   return class_node
 
 
-def get_full_type_name(type_):
+def get_full_type_name(type_, module_root=None):
   type_module = inspect.getmodule(type_)
   
   if (type_module and hasattr(type_module, "__name__")
       and type_module.__name__ != "__builtin__"):
-    return ".".join([type_module.__name__, type_.__name__])
+    if (module_root is not None
+        and _module_names_equal(type_module.__name__, module_root.__name__)):
+      return type_.__name__
+    else:
+      return (
+        _get_module_name_without_internal_component(type_module.__name__)
+        + "." + type_.__name__)
   else:
     return type_.__name__
 
@@ -143,9 +149,9 @@ def _get_external_module_names_for_base_classes(subclass):
   external_modules = []
   
   for base_class in subclass.__bases__:
-    if (base_class.__module__ != subclass.__module__
-        and base_class.__module__ != "__builtin__"):
-      external_module_name = _get_module_name_without_internal_components(
+    if (base_class.__module__ != "__builtin__"
+        and not _module_names_equal(base_class.__module__, subclass.__module__)):
+      external_module_name = _get_module_name_without_internal_component(
         base_class.__module__)
       if external_module_name not in external_modules:
         external_modules.append(external_module_name)
@@ -153,10 +159,21 @@ def _get_external_module_names_for_base_classes(subclass):
   return external_modules
 
 
-def _get_module_name_without_internal_components(module_name):
-  return ".".join(
-    module_name_component for module_name_component in module_name.split(".")
-    if not module_name_component.startswith("_"))
+def _module_names_equal(module_name1, module_name2):
+  return (
+    module_name1 == module_name2
+    or (module_name1.startswith("_") and module_name1[1:] == module_name2)
+    or (module_name2.startswith("_") and module_name1 == module_name2[1:]))
+
+
+def _get_module_name_without_internal_component(module_name):
+  module_name_components = module_name.split(".")
+  
+  if (len(module_name_components) >= 2
+      and module_name_components[0] == module_name_components[1].lstrip("_")):
+    return ".".join([module_name_components[0]] + module_name_components[2:])
+  else:
+    return module_name
 
 
 def get_ast_node_for_function(routine):
@@ -231,6 +248,9 @@ def insert_ast_docstring(member, member_node):
 def process_ast_nodes(member, member_node):
   remove_redundant_methods_from_subclasses(member, member_node)
   remove_duplicate_imports(member, member_node)
+
+
+#===============================================================================
 
 
 def remove_redundant_methods_from_subclasses(member, member_node):
@@ -340,6 +360,9 @@ def _routine_docstrings_equal(routine_node1, routine_node2):
 
 def _remove_ast_node(node, parent_node, member):
   del parent_node.body[parent_node.body.index(node)]
+
+
+#===============================================================================
 
 
 def remove_duplicate_imports(member, member_node):

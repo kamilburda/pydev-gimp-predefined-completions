@@ -251,6 +251,7 @@ def process_ast_nodes(member, member_node):
   sort_classes_by_hierarchy(member, member_node)
   remove_duplicate_imports(member, member_node)
   move_top_level_variables_to_end(member, member_node)
+  move_class_level_variables_before_methods(member, member_node)
 
 
 #===============================================================================
@@ -447,3 +448,24 @@ def move_top_level_variables_to_end(member, member_node):
   
   for node, _unused in variable_nodes_and_indices:
     member_node.body.append(node)
+
+
+#===============================================================================
+
+
+def move_class_level_variables_before_methods(member, member_node):
+  for class_node in (node for node in member_node.body if isinstance(node, ast.ClassDef)):
+    class_variable_nodes_and_indices = [
+      (node, node_index) for node_index, node in enumerate(class_node.body)
+      if isinstance(node, ast.Assign)]
+    
+    for node, node_index in reversed(class_variable_nodes_and_indices):
+      del class_node.body[node_index]
+    
+    first_method_node_index = next(
+      (node_index for node_index, node in enumerate(class_node.body)
+       if isinstance(node, ast.FunctionDef)),
+      max(len(class_node.body), 0))
+    
+    for node, _unused in reversed(class_variable_nodes_and_indices):
+      class_node.body.insert(first_method_node_index, node)

@@ -250,6 +250,7 @@ def process_ast_nodes(member, member_node):
   remove_redundant_methods_from_subclasses(member, member_node)
   sort_classes_by_hierarchy(member, member_node)
   remove_duplicate_imports(member, member_node)
+  move_top_level_variables_to_end(member, member_node)
 
 
 #===============================================================================
@@ -431,3 +432,18 @@ def remove_duplicate_imports(member, member_node):
         return None
   
   ImportDeduplicator().visit(member_node)
+
+
+#===============================================================================
+
+
+def move_top_level_variables_to_end(member, member_node):
+  variable_nodes_and_indices = [
+    (node, node_index) for node_index, node in enumerate(member_node.body)
+    if isinstance(node, ast.Assign)]
+  
+  for node, node_index in reversed(variable_nodes_and_indices):
+    del member_node.body[node_index]
+  
+  for node, _unused in variable_nodes_and_indices:
+    member_node.body.append(node)

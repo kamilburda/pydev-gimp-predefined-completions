@@ -281,10 +281,10 @@ def remove_redundant_members_from_subclasses(member, member_node):
   
   for mro_for_class in (inspect.getmro(class_) for class_ in classes):
     for class_index, class_ in reversed(list(enumerate(mro_for_class))):
-      if (get_full_type_name(class_) in class_nodes_map
+      if (class_ in class_nodes_map
           and class_ not in visited_classes
           and class_index + 1 < len(mro_for_class)):
-        class_node = class_nodes_map[get_full_type_name(class_)]
+        class_node = class_nodes_map[class_]
         class_member_nodes = _get_class_member_nodes(
           class_node, member_nodes_for_classes)
         
@@ -316,16 +316,16 @@ def _get_class_nodes_map(classes, class_nodes):
   class_nodes_map = {}
   class_node_names = {node.name: node for node in class_nodes}
   for class_ in classes:
-    class_nodes_map[get_full_type_name(class_)] = class_node_names[class_.__name__]
+    class_nodes_map[class_] = class_node_names[class_.__name__]
   
   return class_nodes_map
 
 
 def _get_ast_node_for_non_member_class(class_, non_member_class_nodes_map):
-  class_node = non_member_class_nodes_map.get(get_full_type_name(class_))
+  class_node = non_member_class_nodes_map.get(class_)
   if class_node is None:
     class_node = get_ast_node_for_class(class_)
-    non_member_class_nodes_map[get_full_type_name(class_)] = class_node
+    non_member_class_nodes_map[class_] = class_node
   
   return class_node
 
@@ -419,12 +419,13 @@ def sort_classes_by_hierarchy(member, member_node):
   
   for mro_for_class in reversed(list(inspect.getmro(class_) for class_ in classes)):
     for class_ in mro_for_class:
-      if get_full_type_name(class_) in class_nodes_map:
-        class_node = class_nodes_map[get_full_type_name(class_)]
-        if class_node in class_nodes_new_order:
-          del class_nodes_new_order[class_node]
+      if class_ in class_nodes_map:
+        class_node = class_nodes_map[class_]
         
-        class_nodes_new_order[class_node] = None
+        if class_node in class_nodes_new_order:
+          _move_ordered_dict_element_to_end(class_nodes_new_order, class_node)
+        else:
+          class_nodes_new_order[class_node] = None
   
   _reverse_ordered_dict(class_nodes_new_order)
   
@@ -435,6 +436,13 @@ def sort_classes_by_hierarchy(member, member_node):
         class_nodes_and_indices, class_nodes_new_order):
     class_node_new_position = class_nodes_and_indices[orig_class_node]
     member_node.body.insert(class_node_new_position, new_class_node)
+
+
+def _move_ordered_dict_element_to_end(ordered_dict, element_key):
+  value = ordered_dict[element_key]
+  del ordered_dict[element_key]
+  ordered_dict[element_key] = value
+  
 
 
 def _reverse_ordered_dict(ordered_dict):

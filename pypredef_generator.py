@@ -245,13 +245,22 @@ def insert_ast_docstring(member, member_node):
 
 #===============================================================================
 
+module_specific_processing_functions = collections.OrderedDict()
+
 
 def process_ast_nodes(member, member_node):
   remove_redundant_members_from_subclasses(member, member_node)
   sort_classes_by_hierarchy(member, member_node)
+  
   remove_duplicate_imports(member, member_node)
+  
   move_top_level_variables_to_end(member, member_node)
   move_class_level_variables_before_methods(member, member_node)
+  
+  if member.__name__ in module_specific_processing_functions:
+    for function in module_specific_processing_functions[member.__name__]:
+      function(member, member_node)
+  
   fix_empty_class_bodies(member, member_node)
 
 

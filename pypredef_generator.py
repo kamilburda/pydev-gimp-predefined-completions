@@ -490,7 +490,7 @@ def move_top_level_variables_to_end(member, member_node):
   for node, node_index in reversed(variable_nodes_and_indices):
     del member_node.body[node_index]
   
-  for node, _unused in variable_nodes_and_indices:
+  for node, unused_ in variable_nodes_and_indices:
     member_node.body.append(node)
 
 
@@ -511,7 +511,7 @@ def move_class_level_variables_before_methods(member, member_node):
        if isinstance(node, ast.FunctionDef)),
       max(len(class_node.body), 0))
     
-    for node, _unused in reversed(class_variable_nodes_and_indices):
+    for node, unused_ in reversed(class_variable_nodes_and_indices):
       class_node.body.insert(first_method_node_index, node)
 
 

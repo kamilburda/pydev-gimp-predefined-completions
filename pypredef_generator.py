@@ -252,6 +252,7 @@ def process_ast_nodes(member, member_node):
   remove_duplicate_imports(member, member_node)
   move_top_level_variables_to_end(member, member_node)
   move_class_level_variables_before_methods(member, member_node)
+  fix_empty_class_bodies(member, member_node)
 
 
 #===============================================================================
@@ -489,3 +490,13 @@ def move_class_level_variables_before_methods(member, member_node):
     
     for node, _unused in reversed(class_variable_nodes_and_indices):
       class_node.body.insert(first_method_node_index, node)
+
+
+#===============================================================================
+
+
+def fix_empty_class_bodies(member, member_node):
+  for class_node in (
+        node for node in member_node.body if isinstance(node, ast.ClassDef)):
+    if not class_node.body:
+      class_node.body.append(ast.Pass())

@@ -247,7 +247,7 @@ def insert_ast_docstring(member, member_node):
 
 
 def process_ast_nodes(member, member_node):
-  remove_redundant_methods_from_subclasses(member, member_node)
+  remove_redundant_members_from_subclasses(member, member_node)
   sort_classes_by_hierarchy(member, member_node)
   remove_duplicate_imports(member, member_node)
   move_top_level_variables_to_end(member, member_node)
@@ -257,14 +257,14 @@ def process_ast_nodes(member, member_node):
 #===============================================================================
 
 
-def remove_redundant_methods_from_subclasses(member, member_node):
+def remove_redundant_members_from_subclasses(member, member_node):
   class_nodes = [node for node in member_node.body if isinstance(node, ast.ClassDef)]
   classes = _get_classes_from_member(class_nodes, member)
   
   class_nodes_map = _get_class_nodes_map(classes, class_nodes)
   non_member_class_nodes_map = {}
   
-  method_nodes_for_classes = {}
+  member_nodes_for_classes = {}
   visited_classes = set()
   
   for mro_for_class in (inspect.getmro(class_) for class_ in classes):
@@ -273,18 +273,18 @@ def remove_redundant_methods_from_subclasses(member, member_node):
           and class_ not in visited_classes
           and class_index + 1 < len(mro_for_class)):
         class_node = class_nodes_map[get_full_type_name(class_)]
-        method_nodes_for_class = _get_method_nodes_for_class_node(
-          class_node, method_nodes_for_classes)
+        class_member_nodes = _get_class_member_nodes(
+          class_node, member_nodes_for_classes)
         
         parent_class = mro_for_class[class_index + 1]
         parent_class_node = _get_ast_node_for_non_member_class(
           parent_class, non_member_class_nodes_map)
-        method_nodes_for_parent_class = _get_method_nodes_for_class_node(
-          parent_class_node, method_nodes_for_classes)
+        parent_class_member_nodes = _get_class_member_nodes(
+          parent_class_node, member_nodes_for_classes)
         
-        for method_node in list(method_nodes_for_class):
-          if _is_same_routine_node_in_nodes(method_node, method_nodes_for_parent_class):
-            _remove_ast_node(method_node, class_node)
+        for class_member_node in list(class_member_nodes):
+          _remove_redundant_class_member_node(
+            class_member_node, class_node, parent_class_member_nodes)
         
         visited_classes.add(class_)
 
@@ -318,17 +318,28 @@ def _get_ast_node_for_non_member_class(class_, non_member_class_nodes_map):
   return class_node
 
 
-def _get_method_nodes_for_class_node(class_node, method_nodes_for_classes):
-  method_nodes_for_class = method_nodes_for_classes.get(class_node.name)
-  if method_nodes_for_class is None:
-    method_nodes_for_class = _get_method_nodes(class_node)
-    method_nodes_for_classes[class_node.name] = method_nodes_for_class
+def _get_class_member_nodes(class_node, member_nodes_for_classes):
+  class_member_nodes = member_nodes_for_classes.get(class_node.name)
+  if class_member_nodes is None:
+    class_member_nodes = list(class_node.body)
+    member_nodes_for_classes[class_node.name] = class_member_nodes
   
-  return method_nodes_for_class
+  return class_member_nodes
 
 
-def _get_method_nodes(class_node):
-  return [node for node in class_node.body if isinstance(node, ast.FunctionDef)]
+def _remove_redundant_class_member_node(
+      class_member_node, class_node, parent_class_member_nodes):
+  if isinstance(class_member_node, ast.FunctionDef):
+    if _is_same_routine_node_in_nodes(
+         class_member_node,
+         (node for node in parent_class_member_nodes
+          if isinstance(node, ast.FunctionDef))):
+      _remove_ast_node(class_member_node, class_node)
+  elif isinstance(class_member_node, ast.Assign):
+    if _is_same_assign_node_in_nodes(
+         class_member_node,
+         (node for node in parent_class_member_nodes if isinstance(node, ast.Assign))):
+      _remove_ast_node(class_member_node, class_node)
 
 
 def _is_same_routine_node_in_nodes(routine_node, routine_nodes):
@@ -340,6 +351,15 @@ def _is_same_routine_node_in_nodes(routine_node, routine_nodes):
   for node in routine_nodes:
     if routine_node.name == node.name:
       return _routine_nodes_equal(routine_node, node)
+  
+  return False
+
+
+def _is_same_assign_node_in_nodes(assing_node, assign_nodes):
+  for node in assign_nodes:
+    # HACK: This works despite being dirty.
+    if ast.dump(assing_node) == ast.dump(node):
+      return True
   
   return False
 

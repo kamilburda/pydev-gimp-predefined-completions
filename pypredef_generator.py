@@ -509,3 +509,13 @@ def fix_empty_class_bodies(member, member_node):
         node for node in member_node.body if isinstance(node, ast.ClassDef)):
     if not class_node.body:
       class_node.body.append(ast.Pass())
+
+
+#===============================================================================
+
+
+def remove_class_docstrings(member, member_node):
+  for class_node in (
+        node for node in member_node.body if isinstance(node, ast.ClassDef)):
+    if ast.get_docstring(class_node):
+      del class_node.body[0]

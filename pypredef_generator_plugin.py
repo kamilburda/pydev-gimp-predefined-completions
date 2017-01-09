@@ -34,6 +34,13 @@ def generate_predefined_completions_for_pydev(generate_for_modules, generate_for
   if generate_for_modules:
     _make_dirs(pypredef_generator.PYPREDEF_FILES_DIR)
     
+    pypredef_generator.module_specific_processing_functions.update({
+      module_name: [pypredef_generator.remove_class_docstrings]
+      for module_name in [
+        "_gimpui", "gtk._gtk", "gtk.gdk", "gobject._gobject", "cairo._cairo", "pango",
+        "pangocairo", "atk", "glib._glib", "gio._gio"]
+    })
+    
     for module_name in module_names:
       module = importlib.import_module(module_name)
       pypredef_generator.generate_predefined_completions(module)

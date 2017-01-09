@@ -164,7 +164,9 @@ def _module_names_equal(module_name1, module_name2):
   return (
     module_name1 == module_name2
     or (module_name1.startswith("_") and module_name1[1:] == module_name2)
-    or (module_name2.startswith("_") and module_name1 == module_name2[1:]))
+    or (_get_module_name_without_internal_component(module_name1) == module_name2)
+    or (module_name2.startswith("_") and module_name1 == module_name2[1:])
+    or (module_name1 == _get_module_name_without_internal_component(module_name2)))
 
 
 def _get_module_name_without_internal_component(module_name):

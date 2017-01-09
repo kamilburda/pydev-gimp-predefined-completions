@@ -280,23 +280,21 @@ def remove_redundant_members_from_subclasses(member, member_node):
   visited_classes = set()
   
   for mro_for_class in (inspect.getmro(class_) for class_ in classes):
-    for class_index, class_ in reversed(list(enumerate(mro_for_class))):
-      if (class_ in class_nodes_map
-          and class_ not in visited_classes
-          and class_index + 1 < len(mro_for_class)):
+    for class_ in reversed(mro_for_class):
+      if class_ in class_nodes_map and class_ not in visited_classes:
         class_node = class_nodes_map[class_]
         class_member_nodes = _get_class_member_nodes(
           class_node, member_nodes_for_classes)
         
-        parent_class = mro_for_class[class_index + 1]
-        parent_class_node = _get_ast_node_for_non_member_class(
-          parent_class, non_member_class_nodes_map)
-        parent_class_member_nodes = _get_class_member_nodes(
-          parent_class_node, member_nodes_for_classes)
-        
-        for class_member_node in list(class_member_nodes):
-          _remove_redundant_class_member_node(
-            class_member_node, class_node, parent_class_member_nodes)
+        for parent_class in class_.__bases__:
+          parent_class_node = _get_ast_node_for_non_member_class(
+            parent_class, non_member_class_nodes_map)
+          parent_class_member_nodes = _get_class_member_nodes(
+            parent_class_node, member_nodes_for_classes)
+          
+          for class_member_node in list(class_member_nodes):
+            _remove_redundant_class_member_node(
+              class_member_node, class_node, parent_class_member_nodes)
         
         visited_classes.add(class_)
 
@@ -400,7 +398,14 @@ def _routine_docstrings_equal(routine_node1, routine_node2):
 
 
 def _remove_ast_node(node, parent_node):
-  del parent_node.body[parent_node.body.index(node)]
+  try:
+    node_index = parent_node.body.index(node)
+  except ValueError:
+    # The node may have already been removed. This can happen e.g. if multiple
+    # base classes define a member with the same name.
+    pass
+  else:
+    del parent_node.body[node_index]
 
 
 #===============================================================================

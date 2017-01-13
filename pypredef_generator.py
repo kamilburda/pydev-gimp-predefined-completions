@@ -28,22 +28,72 @@ TEXT_FILE_ENCODING = "utf-8"
 #===============================================================================
 
 
+class Element(object):
+  
+  node_element_map = collections.OrderedDict()
+  node_element_map_per_module = collections.OrderedDict()
+  
+  def __init__(self, object_, name_from_dir, module, ast_node=None):
+    self._object = object_
+    self._name_from_dir = name_from_dir
+    self._module = module
+    
+    if ast_node is not None:
+      self.node = ast_node
+    else:
+      self._node = None
+  
+  @property
+  def object(self):
+    return self._object
+  
+  @property
+  def name_from_dir(self):
+    return self._name_from_dir
+  
+  @property
+  def module(self):
+    return self._module
+  
+  @property
+  def node(self):
+    return self._node
+  
+  @node.setter
+  def node(self, node):
+    self._node = node
+    
+    self.node_element_map[node] = self
+    
+    if self._module not in self.node_element_map_per_module:
+      self.node_element_map_per_module[self._module] = collections.OrderedDict()
+    
+    self.node_element_map_per_module[self._module][node] = self
+
+
+#===============================================================================
+
+
 def generate_predefined_completions(module):
   module_node = get_ast_node_for_module(module)
+  module_element = Element(module, None, module, module_node)
   
-  insert_ast_nodes(module, module_node)
+  insert_ast_nodes(module_element)
   
-  insert_ast_docstring(module, module_node)
+  insert_ast_docstring(module_element)
   
-  process_ast_nodes(module, module_node)
+  process_ast_nodes(module_element)
   
-  write_pypredef_file(module.__name__, module_node)
+  write_pypredef_file(module_element)
 
 
-def write_pypredef_file(module_name, module_node):
-  pypredef_file_path = _get_pypredef_file_path(module_name)
+def write_pypredef_file(module_element, filename=None):
+  if filename is None:
+    filename = module_element.object.__name__
+  
+  pypredef_file_path = _get_pypredef_file_path(filename)
   with io.open(pypredef_file_path, "w", encoding=TEXT_FILE_ENCODING) as pypredef_file:
-    pypredef_file.write(astor.to_source(module_node).decode(TEXT_FILE_ENCODING))
+    pypredef_file.write(astor.to_source(module_element.node).decode(TEXT_FILE_ENCODING))
 
 
 def _get_pypredef_file_path(module_name):
@@ -53,49 +103,60 @@ def _get_pypredef_file_path(module_name):
 #===============================================================================
 
 
-def insert_ast_nodes(member, member_node):
-  for child_member_name in dir(member):
-    insert_ast_node(child_member_name, member, member_node)
+def insert_ast_nodes(element):
+  for child_member_name in dir(element.object):
+    insert_ast_node(child_member_name, element)
 
 
-def insert_ast_node(child_member_name, member, member_node):
-  child_member = getattr(member, child_member_name, None)
+def insert_ast_node(child_member_name, element, module=None):
+  if module is None:
+    module = element.module
   
-  if inspect.ismodule(child_member):
-    child_member_node = get_ast_node_for_import(child_member, member)
-    member_node.body.insert(0, child_member_node)
-  elif inspect.isclass(child_member) and _can_inspect_class_member(child_member_name):
-    child_member_node = get_ast_node_for_class(child_member, module_root=member)
-    member_node.body.append(child_member_node)
-    insert_ast_docstring(child_member, child_member_node)
+  child_element = Element(
+    getattr(element.object, child_member_name, None), child_member_name, module)
+  
+  if inspect.ismodule(child_element.object):
+    child_element.node = get_ast_node_for_import(child_element)
+    element.node.body.insert(0, child_element.node)
+  elif (inspect.isclass(child_element.object)
+        and _can_inspect_class_element(child_element)):
+    child_element.node = get_ast_node_for_class(
+      child_element, module_root=element.module)
     
-    external_module_names = _get_external_module_names_for_base_classes(child_member)
+    element.node.body.append(child_element.node)
+    insert_ast_docstring(child_element)
+    
+    external_module_names = _get_external_module_names_for_base_classes(
+      child_element.object)
     for module_name in reversed(external_module_names):
-      member_node.body.insert(0, get_ast_node_for_import_by_module_name(module_name))
-  elif inspect.isroutine(child_member):
-    if not inspect.isclass(member):
-      child_member_node = get_ast_node_for_function(child_member)
+      element.node.body.insert(0, get_ast_node_for_import_by_module_name(module_name))
+  elif inspect.isroutine(child_element.object):
+    if not inspect.isclass(element.object):
+      child_element.node = get_ast_node_for_function(child_element)
     else:
-      child_member_node = get_ast_node_for_method(child_member)
+      child_element.node = get_ast_node_for_method(child_element)
     
-    member_node.body.append(child_member_node)
-    insert_ast_docstring(child_member, child_member_node)
+    element.node.body.append(child_element.node)
+    insert_ast_docstring(child_element)
   else:
-    child_member_node = get_ast_node_for_member(child_member, child_member_name)
-    member_node.body.append(child_member_node)
+    child_element.node = get_ast_node_for_assignment_of_type_to_name(child_element)
+    element.node.body.append(child_element.node)
 
 
-def _can_inspect_class_member(class_member_name):
-  return class_member_name != "__class__"
+def _can_inspect_class_element(class_element):
+  return class_element.name_from_dir != "__class__"
 
 
 def get_ast_node_for_module(module):
   return ast.Module(body=[])
 
 
-def get_ast_node_for_import(module, module_root):
+def get_ast_node_for_import(module_element):
   return ast.Import(
-    names=[ast.alias(name=get_relative_module_name(module, module_root), asname=None)])
+    names=[ast.alias(
+      name=get_relative_module_name(
+        module_element.object, module_root=module_element.module),
+      asname=None)])
 
 
 def get_ast_node_for_import_by_module_name(module_name):
@@ -116,16 +177,18 @@ def get_relative_module_name(module, module_root):
   return ".".join(module_path_components)
 
 
-def get_ast_node_for_class(class_, module_root=None):
+def get_ast_node_for_class(class_element, module_root=None):
   class_node = ast.ClassDef(
-    name=class_.__name__,
+    name=class_element.name_from_dir,
     bases=[
       ast.Name(id=get_full_type_name(base_class, module_root))
-      for base_class in class_.__bases__],
+      for base_class in class_element.object.__bases__],
     body=[],
     decorator_list=[])
   
-  insert_ast_nodes(class_, class_node)
+  class_element.node = class_node
+  
+  insert_ast_nodes(class_element)
   
   return class_node
 
@@ -144,6 +207,15 @@ def get_full_type_name(type_, module_root=None):
         + "." + type_.__name__)
   else:
     return type_.__name__
+
+
+def get_full_type_name_from_object(object_, module_root=None):
+  if hasattr(object_, "__class__"):
+    type_ = object_.__class__
+  else:
+    type_ = type(object_)
+  
+  return get_full_type_name(type_, module_root=module_root)
 
 
 def _get_external_module_names_for_base_classes(subclass):
@@ -179,46 +251,34 @@ def _get_module_name_without_internal_component(module_name):
     return module_name
 
 
-def get_ast_node_for_function(routine):
+def get_ast_node_for_function(function_element):
   return ast.FunctionDef(
-    name=routine.__name__,
-    args=get_ast_arguments_for_routine(routine),
+    name=function_element.name_from_dir,
+    args=get_ast_arguments_for_routine(function_element.object),
     body=[ast.Pass()],
     decorator_list=[])
 
 
-def get_ast_node_for_method(method):
-  arguments = get_ast_arguments_for_routine(method)
+def get_ast_node_for_method(method_element):
+  arguments = get_ast_arguments_for_routine(method_element.object)
   if not arguments.args:
     arguments.args.insert(0, ast.Name(id="self"))
   
   return ast.FunctionDef(
-    name=method.__name__,
+    name=method_element.name_from_dir,
     args=arguments,
     body=[ast.Pass()],
     decorator_list=[])
 
 
-def get_ast_node_for_member(member, member_name=None):
-  """
-  Return AST node describing `<member name> = <member type>` assignment.
-  
-  If `member` has no `__class__` attribute, assign None.
-  
-  If `member_name` is not None, it is used as a member name instead of the name
-  inferred from `member.` This is useful is `member` has no `__name__`
-  attribute.
-  """
-  
-  member_name = member_name if member_name is not None else member.__name__
-  
-  if member is not None and hasattr(member, "__class__"):
-    member_type_name = member.__class__.__name__
+def get_ast_node_for_assignment_of_type_to_name(element):
+  if element.object is not None:
+    member_type_name = get_full_type_name_from_object(element.object, element.module)
   else:
     member_type_name = "None"
   
   return ast.Assign(
-    targets=[ast.Name(id=member_name)], value=ast.Name(id=member_type_name))
+    targets=[ast.Name(id=element.name_from_dir)], value=ast.Name(id=member_type_name))
 
 
 def get_ast_arguments_for_routine(routine):
@@ -239,10 +299,10 @@ def get_ast_arguments_for_routine(routine):
   return arguments
 
 
-def insert_ast_docstring(member, member_node):
-  member_dostring = inspect.getdoc(member)
+def insert_ast_docstring(element):
+  member_dostring = inspect.getdoc(element.object)
   if member_dostring:
-    member_node.body.insert(0, ast.Expr(value=ast.Str(s=member_dostring)))
+    element.node.body.insert(0, ast.Expr(value=ast.Str(s=member_dostring)))
 
 
 #===============================================================================
@@ -250,89 +310,90 @@ def insert_ast_docstring(member, member_node):
 module_specific_processing_functions = collections.OrderedDict()
 
 
-def process_ast_nodes(member, member_node):
-  remove_redundant_members_from_subclasses(member, member_node)
-  sort_classes_by_hierarchy(member, member_node)
+def process_ast_nodes(module_element):
+  remove_redundant_members_from_subclasses(module_element)
+  sort_classes_by_hierarchy(module_element)
   
-  remove_duplicate_imports(member, member_node)
+  remove_duplicate_imports(module_element)
   
-  move_top_level_variables_to_end(member, member_node)
-  move_class_level_variables_before_methods(member, member_node)
+  move_top_level_variables_to_end(module_element)
+  move_class_level_variables_before_methods(module_element)
   
-  if member.__name__ in module_specific_processing_functions:
-    for function in module_specific_processing_functions[member.__name__]:
-      function(member, member_node)
+  if module_element.module.__name__ in module_specific_processing_functions:
+    processing_functions = (
+      module_specific_processing_functions[module_element.module.__name__])
+    for processing_function in processing_functions:
+      processing_function(module_element)
   
-  fix_empty_class_bodies(member, member_node)
+  fix_empty_class_bodies(module_element)
 
 
 #===============================================================================
 
 
-def remove_redundant_members_from_subclasses(member, member_node):
-  class_nodes = [node for node in member_node.body if isinstance(node, ast.ClassDef)]
-  classes = _get_classes_from_member(class_nodes, member)
+def remove_redundant_members_from_subclasses(module_element):
+  class_nodes = [
+    node for node in module_element.node.body if isinstance(node, ast.ClassDef)]
+  class_element_map = _get_class_element_map(class_nodes, module_element)
   
-  class_nodes_map = _get_class_nodes_map(classes, class_nodes)
-  non_member_class_nodes_map = {}
+  external_class_nodes_map = {}
   
   member_nodes_for_classes = {}
   visited_classes = set()
   
-  for mro_for_class in (inspect.getmro(class_) for class_ in classes):
+  for mro_for_class in (
+        inspect.getmro(class_in_module) for class_in_module in class_element_map):
     for class_ in reversed(mro_for_class):
-      if class_ in class_nodes_map and class_ not in visited_classes:
-        class_node = class_nodes_map[class_]
+      if class_ in class_element_map and class_ not in visited_classes:
+        class_node = class_element_map[class_].node
         class_member_nodes = _get_class_member_nodes(
-          class_node, member_nodes_for_classes)
+          class_, class_node, member_nodes_for_classes)
         
         for parent_class in class_.__bases__:
-          parent_class_node = _get_ast_node_for_non_member_class(
-            parent_class, non_member_class_nodes_map)
+          if parent_class in class_element_map:
+            parent_class_node = class_element_map[parent_class].node
+          else:
+            parent_class_node = _get_ast_node_for_external_class(
+              parent_class, external_class_nodes_map)
+          
           parent_class_member_nodes = _get_class_member_nodes(
-            parent_class_node, member_nodes_for_classes)
+            parent_class, parent_class_node, member_nodes_for_classes)
           
           for class_member_node in list(class_member_nodes):
             _remove_redundant_class_member_node(
               class_member_node, class_node, parent_class_member_nodes)
-        
+          
         visited_classes.add(class_)
 
 
-def _get_classes_from_member(class_nodes, member):
-  classes = []
+def _get_class_element_map(class_nodes, element):
+  node_element_map_for_module = Element.node_element_map_per_module[element.module]
   
-  for class_node in class_nodes:
-    class_ = getattr(member, class_node.name, None)
-    if class_ is not None:
-      classes.append(class_)
-  
-  return classes
+  return collections.OrderedDict(
+    (node_element_map_for_module[class_node].object,
+     node_element_map_for_module[class_node])
+    for class_node in class_nodes)
 
 
-def _get_class_nodes_map(classes, class_nodes):
-  class_nodes_map = {}
-  class_node_names = {node.name: node for node in class_nodes}
-  for class_ in classes:
-    class_nodes_map[class_] = class_node_names[class_.__name__]
-  
-  return class_nodes_map
-
-
-def _get_ast_node_for_non_member_class(class_, non_member_class_nodes_map):
-  class_node = non_member_class_nodes_map.get(class_)
+def _get_ast_node_for_external_class(class_, external_class_nodes_map):
+  class_node = external_class_nodes_map.get(class_)
   if class_node is None:
-    class_node = get_ast_node_for_class(class_)
-    non_member_class_nodes_map[class_] = class_node
+    #FIXME: This is not OK, we shouldn't use `__name__` as it can differ from
+    # the name from `dir(module)`. We should use the latter instead.
+    # If the name from `dir()` is not available, we need to find such name by
+    # comparing `id(class_)` with each `dir()` member (or use a {module: member ID} map?).
+    class_element = Element(class_, class_.__name__, inspect.getmodule(class_))
+    class_node = get_ast_node_for_class(class_element)
+    external_class_nodes_map[class_] = class_node
   
   return class_node
 
 
-def _get_class_member_nodes(class_node, member_nodes_for_classes):
-  class_member_nodes = member_nodes_for_classes.get(class_node.name)
+def _get_class_member_nodes(class_, class_node, member_nodes_for_classes):
+  class_member_nodes = member_nodes_for_classes.get(class_)
   if class_member_nodes is None:
     class_member_nodes = list(class_node.body)
-    member_nodes_for_classes[class_node.name] = class_member_nodes
+    member_nodes_for_classes[class_] = class_member_nodes
   
   return class_member_nodes
 
@@ -359,24 +420,17 @@ def _is_same_routine_node_in_nodes(routine_node, routine_nodes):
   """
   
   for node in routine_nodes:
-    if routine_node.name == node.name:
-      return _routine_nodes_equal(routine_node, node)
-  
-  return False
-
-
-def _is_same_assign_node_in_nodes(assing_node, assign_nodes):
-  for node in assign_nodes:
-    # HACK: This works despite being dirty.
-    if ast.dump(assing_node) == ast.dump(node):
+    if _routine_nodes_equal(routine_node, node):
       return True
   
   return False
 
 
 def _routine_nodes_equal(routine_node1, routine_node2):
-  return (_routine_signatures_equal(routine_node1, routine_node2)
-          and _routine_docstrings_equal(routine_node1, routine_node2))
+  return (
+    routine_node1.name == routine_node2.name
+    and _routine_signatures_equal(routine_node1, routine_node2)
+    and _routine_docstrings_equal(routine_node1, routine_node2))
 
 
 def _routine_signatures_equal(routine_node1, routine_node2):
@@ -397,6 +451,37 @@ def _routine_docstrings_equal(routine_node1, routine_node2):
   return ast.get_docstring(routine_node1) == ast.get_docstring(routine_node2)
 
 
+def _is_same_assign_node_in_nodes(assign_node, assign_nodes):
+  for node in assign_nodes:
+    if _assign_nodes_equal(assign_node, node):
+      return True
+  
+  return False
+
+
+def _assign_nodes_equal(assign_node1, assign_node2):
+  return (
+    _assign_targets_equal(assign_node1, assign_node2)
+    and _assign_values_equal(assign_node1, assign_node2))
+
+
+def _assign_targets_equal(assign_node1, assign_node2):
+  return (
+    len(assign_node1.targets) == 1 and len(assign_node2.targets) == 1
+    and assign_node1.targets[0].id == assign_node2.targets[0].id)
+
+
+def _assign_values_equal(assign_node1, assign_node2):
+  element1 = Element.node_element_map[assign_node1]
+  element2 = Element.node_element_map[assign_node2]
+  
+  module_root = element1.module
+  
+  return (
+    get_full_type_name_from_object(element1.object, module_root=module_root)
+    == get_full_type_name_from_object(element2.object, module_root=module_root))
+
+
 def _remove_ast_node(node, parent_node):
   try:
     node_index = parent_node.body.index(node)
@@ -411,21 +496,22 @@ def _remove_ast_node(node, parent_node):
 #===============================================================================
 
 
-def sort_classes_by_hierarchy(member, member_node):
-  class_nodes = [node for node in member_node.body if isinstance(node, ast.ClassDef)]
+def sort_classes_by_hierarchy(module_element):
   
-  classes = _get_classes_from_member(class_nodes, member)
-  class_nodes_map = _get_class_nodes_map(classes, class_nodes)
+  class_nodes = [
+    node for node in module_element.node.body if isinstance(node, ast.ClassDef)]
+  class_element_map = _get_class_element_map(class_nodes, module_element)
   
   class_nodes_and_indices = collections.OrderedDict([
-    (node, node_index) for node_index, node in enumerate(member_node.body)
+    (node, node_index) for node_index, node in enumerate(module_element.node.body)
     if isinstance(node, ast.ClassDef)])
   class_nodes_new_order = collections.OrderedDict()
   
-  for mro_for_class in reversed(list(inspect.getmro(class_) for class_ in classes)):
+  for mro_for_class in reversed(list(
+        inspect.getmro(class_in_module) for class_in_module in class_element_map)):
     for class_ in mro_for_class:
-      if class_ in class_nodes_map:
-        class_node = class_nodes_map[class_]
+      if class_ in class_element_map:
+        class_node = class_element_map[class_].node
         
         if class_node in class_nodes_new_order:
           _move_ordered_dict_element_to_end(class_nodes_new_order, class_node)
@@ -434,13 +520,13 @@ def sort_classes_by_hierarchy(member, member_node):
   
   _reverse_ordered_dict(class_nodes_new_order)
   
-  for class_node in class_nodes_map.values():
-    _remove_ast_node(class_node, member_node)
+  for class_element in class_element_map.values():
+    _remove_ast_node(class_element.node, module_element.node)
   
   for orig_class_node, new_class_node in zip(
         class_nodes_and_indices, class_nodes_new_order):
     class_node_new_position = class_nodes_and_indices[orig_class_node]
-    member_node.body.insert(class_node_new_position, new_class_node)
+    module_element.node.body.insert(class_node_new_position, new_class_node)
 
 
 def _move_ordered_dict_element_to_end(ordered_dict, element_key):
@@ -458,9 +544,9 @@ def _reverse_ordered_dict(ordered_dict):
 #===============================================================================
 
 
-def remove_duplicate_imports(member, member_node):
+def remove_duplicate_imports(module_element):
   
-  class ImportDeduplicator(ast.NodeTransformer):
+  class _ImportDeduplicator(ast.NodeTransformer):
     
     import_node_names = set()
     
@@ -476,29 +562,30 @@ def remove_duplicate_imports(member, member_node):
       else:
         return None
   
-  ImportDeduplicator().visit(member_node)
+  _ImportDeduplicator().visit(module_element.node)
 
 
 #===============================================================================
 
 
-def move_top_level_variables_to_end(member, member_node):
+def move_top_level_variables_to_end(module_element):
   variable_nodes_and_indices = [
-    (node, node_index) for node_index, node in enumerate(member_node.body)
+    (node, node_index) for node_index, node in enumerate(module_element.node.body)
     if isinstance(node, ast.Assign)]
   
   for node, node_index in reversed(variable_nodes_and_indices):
-    del member_node.body[node_index]
+    del module_element.node.body[node_index]
   
   for node, unused_ in variable_nodes_and_indices:
-    member_node.body.append(node)
+    module_element.node.body.append(node)
 
 
 #===============================================================================
 
 
-def move_class_level_variables_before_methods(member, member_node):
-  for class_node in (node for node in member_node.body if isinstance(node, ast.ClassDef)):
+def move_class_level_variables_before_methods(module_element):
+  for class_node in (
+        node for node in module_element.node.body if isinstance(node, ast.ClassDef)):
     class_variable_nodes_and_indices = [
       (node, node_index) for node_index, node in enumerate(class_node.body)
       if isinstance(node, ast.Assign)]
@@ -518,9 +605,9 @@ def move_class_level_variables_before_methods(member, member_node):
 #===============================================================================
 
 
-def fix_empty_class_bodies(member, member_node):
+def fix_empty_class_bodies(module_element):
   for class_node in (
-        node for node in member_node.body if isinstance(node, ast.ClassDef)):
+        node for node in ast.walk(module_element.node) if isinstance(node, ast.ClassDef)):
     if not class_node.body:
       class_node.body.append(ast.Pass())
 
@@ -528,8 +615,8 @@ def fix_empty_class_bodies(member, member_node):
 #===============================================================================
 
 
-def remove_class_docstrings(member, member_node):
+def remove_class_docstrings(module_element):
   for class_node in (
-        node for node in member_node.body if isinstance(node, ast.ClassDef)):
+        node for node in module_element.node.body if isinstance(node, ast.ClassDef)):
     if ast.get_docstring(class_node):
       del class_node.body[0]

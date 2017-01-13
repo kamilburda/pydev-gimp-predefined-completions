@@ -193,36 +193,39 @@ def split_param_description(param_description, regex):
 
 
 def generate_predefined_completions_for_gimp_pdb():
-  pdb_node = pypredef_generator.get_ast_node_for_module(gimp.pdb)
+  pdb_element = pypredef_generator.Element(
+    gimp.pdb, "pdb", gimp.pdb, pypredef_generator.get_ast_node_for_module(gimp.pdb))
   
-  for pdb_member_name in dir(gimp.pdb):
-    pdb_member = getattr(gimp.pdb, pdb_member_name, None)
+  for child_member_name in dir(gimp.pdb):
+    child_element = pypredef_generator.Element(
+      getattr(pdb_element.object, child_member_name, None),
+      child_member_name, pdb_element.module)
     
-    if _is_member_pdb_function(pdb_member):
-      if _is_member_generated_temporary_pdb_function(pdb_member_name):
+    if _is_element_pdb_function(child_element):
+      if _is_element_generated_temporary_pdb_function(child_element):
         continue
       else:
-        _insert_ast_node_for_pdb_function(pdb_member_name, pdb_member, pdb_node)
+        _insert_ast_node_for_pdb_function(child_element, pdb_element)
     else:
-      pypredef_generator.insert_ast_node(pdb_member_name, gimp.pdb, pdb_node)
+      pypredef_generator.insert_ast_node(child_member_name, pdb_element, module=gimp)
   
-  pypredef_generator.insert_ast_docstring(pdb_node, gimp.pdb)
+  pypredef_generator.insert_ast_docstring(pdb_element)
   
-  pypredef_generator.write_pypredef_file("gimp.pdb", pdb_node)
+  pypredef_generator.write_pypredef_file(pdb_element, filename="gimp.pdb")
 
 
-def _is_member_pdb_function(member):
-  return type(member).__name__ == "PDBFunction"
+def _is_element_pdb_function(element):
+  return element.object.__class__.__name__ == "PDBFunction"
 
 
-def _is_member_generated_temporary_pdb_function(member_name):
-  return member_name.startswith("temp_procedure_")
+def _is_element_generated_temporary_pdb_function(element):
+  return element.name_from_dir.startswith("temp_procedure_")
 
 
-def _insert_ast_node_for_pdb_function(pdb_function_name, pdb_function, pdb_node):
-  pdb_function_node = _get_ast_node_for_pdb_function(pdb_function)
-  pdb_node.body.append(pdb_function_node)
-  pypredef_generator.insert_ast_docstring(pdb_function_node, pdb_function)
+def _insert_ast_node_for_pdb_function(pdb_function_element, pdb_element):
+  pdb_function_node = _get_ast_node_for_pdb_function(pdb_function_element.object)
+  pdb_element.node.body.append(pdb_function_node)
+  pypredef_generator.insert_ast_docstring(pdb_function_element)
 
 
 def _get_ast_node_for_pdb_function(pdb_function):
@@ -396,8 +399,10 @@ class _PdbFunctionNamePythonizer(object):
   def _fill_pdb_function_names_map(cls):
     if not cls._pdb_function_names_map:
       for pdb_member_name in dir(gimp.pdb):
-        if (_is_member_pdb_function(getattr(gimp.pdb, pdb_member_name, None))
-            and not _is_member_generated_temporary_pdb_function(pdb_member_name)):
+        element = pypredef_generator.Element(
+          getattr(gimp.pdb, pdb_member_name, None), pdb_member_name, gimp.pdb)
+        if (_is_element_pdb_function(element)
+            and not _is_element_generated_temporary_pdb_function(element)):
           unpythonized_member_name = unpythonize_string(pdb_member_name)
           cls._pdb_function_names_map[unpythonized_member_name] = "pdb." + pdb_member_name
     

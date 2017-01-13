@@ -361,6 +361,9 @@ def remove_redundant_members_from_subclasses(module_element):
             parent_class_node = _get_ast_node_for_external_class(
               parent_class, external_class_nodes_map)
           
+          if parent_class_node is None:
+            continue
+          
           parent_class_member_nodes = _get_class_member_nodes(
             parent_class, parent_class_node, member_nodes_for_classes)
           
@@ -382,17 +385,20 @@ def _get_class_element_map(class_nodes, element):
 
 def _get_ast_node_for_external_class(class_, external_class_nodes_map):
   class_node = external_class_nodes_map.get(class_)
-  if class_node is None:
-    #FIXME: This is not OK, we shouldn't use `__name__` as it can differ from
-    # the name from `dir(module)`. We should use the latter instead.
-    # If the name from `dir()` is not available, we need to find such name by
-    # comparing `id(class_)` with each `dir()` member
-    # (or use a {module: member ID} map?).
-    class_element = Element(class_, class_.__name__, inspect.getmodule(class_))
-    class_node = get_ast_node_for_class(class_element)
-    external_class_nodes_map[class_] = class_node
-  
-  return class_node
+  if class_node is not None:
+    return class_node
+  else:
+    class_module = inspect.getmodule(class_)
+    
+    if class_.__name__ in dir(class_module):
+      #FIXME: Is using `__name__` as `name_in_dir` OK here?
+      class_element = Element(class_, class_.__name__, class_module)
+      class_node = get_ast_node_for_class(class_element)
+      external_class_nodes_map[class_] = class_node
+      
+      return class_node
+    else:
+      return None
 
 
 def _get_class_member_nodes(class_, class_node, member_nodes_for_classes):

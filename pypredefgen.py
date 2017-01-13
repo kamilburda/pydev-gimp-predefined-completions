@@ -386,7 +386,8 @@ def _get_ast_node_for_external_class(class_, external_class_nodes_map):
     #FIXME: This is not OK, we shouldn't use `__name__` as it can differ from
     # the name from `dir(module)`. We should use the latter instead.
     # If the name from `dir()` is not available, we need to find such name by
-    # comparing `id(class_)` with each `dir()` member (or use a {module: member ID} map?).
+    # comparing `id(class_)` with each `dir()` member
+    # (or use a {module: member ID} map?).
     class_element = Element(class_, class_.__name__, inspect.getmodule(class_))
     class_node = get_ast_node_for_class(class_element)
     external_class_nodes_map[class_] = class_node
@@ -405,30 +406,25 @@ def _get_class_member_nodes(class_, class_node, member_nodes_for_classes):
 
 def _remove_redundant_class_member_node(
       class_member_node, class_node, parent_class_member_nodes):
-  if isinstance(class_member_node, ast.FunctionDef):
-    if _is_same_routine_node_in_nodes(
-         class_member_node,
-         (node for node in parent_class_member_nodes
-          if isinstance(node, ast.FunctionDef))):
-      _remove_ast_node(class_member_node, class_node)
-  elif isinstance(class_member_node, ast.Assign):
-    if _is_same_assign_node_in_nodes(
-         class_member_node,
-         (node for node in parent_class_member_nodes if isinstance(node, ast.Assign))):
-      _remove_ast_node(class_member_node, class_node)
+  for node_type, equality_function in [
+        (ast.FunctionDef, _routine_nodes_equal), (ast.Assign, _assign_nodes_equal)]:
+    if isinstance(class_member_node, node_type):
+      _remove_node(
+        class_member_node, class_node, parent_class_member_nodes, node_type,
+        equality_function)
+      break
 
 
-def _is_same_routine_node_in_nodes(routine_node, routine_nodes):
-  """
-  Return True if there is a routine node in `routine_nodes` with the same name,
-  signature and docstring as `routine_node`.
-  """
+def _remove_node(
+      class_member_node, class_node, parent_class_member_nodes, node_type,
+      equality_function):
+  member_nodes_of_type = (
+    node for node in parent_class_member_nodes if isinstance(node, node_type))
   
-  for node in routine_nodes:
-    if _routine_nodes_equal(routine_node, node):
-      return True
-  
-  return False
+  for node in member_nodes_of_type:
+    if equality_function(class_member_node, node):
+      _remove_ast_node(class_member_node, class_node)
+      break
 
 
 def _routine_nodes_equal(routine_node1, routine_node2):
@@ -454,14 +450,6 @@ def _routine_signatures_equal(routine_node1, routine_node2):
 
 def _routine_docstrings_equal(routine_node1, routine_node2):
   return ast.get_docstring(routine_node1) == ast.get_docstring(routine_node2)
-
-
-def _is_same_assign_node_in_nodes(assign_node, assign_nodes):
-  for node in assign_nodes:
-    if _assign_nodes_equal(assign_node, node):
-      return True
-  
-  return False
 
 
 def _assign_nodes_equal(assign_node1, assign_node2):

@@ -15,15 +15,15 @@ import importlib
 import gimp
 import gimpfu
 
-import pypredef_generator
-import pypredef_generator_pdb
+import pypredefgen
+import pypredefgen_pdb
 
 #===============================================================================
 
 
 def generate_predefined_completions_for_pydev(generate_for_modules, generate_for_pdb):
   if generate_for_modules:
-    module_names = _get_module_names(pypredef_generator.MODULES_FILE_PATH)
+    module_names = _get_module_names(pypredefgen.MODULES_FILE_PATH)
   else:
     module_names = []
   
@@ -32,10 +32,10 @@ def generate_predefined_completions_for_pydev(generate_for_modules, generate_for
   gimp_progress.initialize()
   
   if generate_for_modules:
-    _make_dirs(pypredef_generator.PYPREDEF_FILES_DIR)
+    _make_dirs(pypredefgen.PYPREDEF_FILES_DIR)
     
-    pypredef_generator.module_specific_processing_functions.update({
-      module_name: [pypredef_generator.remove_class_docstrings]
+    pypredefgen.module_specific_processing_functions.update({
+      module_name: [pypredefgen.remove_class_docstrings]
       for module_name in [
         "_gimpui", "gtk._gtk", "gtk.gdk", "gobject._gobject", "cairo._cairo", "pango",
         "pangocairo", "atk", "glib._glib", "gio._gio"]
@@ -43,18 +43,19 @@ def generate_predefined_completions_for_pydev(generate_for_modules, generate_for
     
     for module_name in module_names:
       module = importlib.import_module(module_name)
-      pypredef_generator.generate_predefined_completions(module)
+      pypredefgen.generate_predefined_completions(module)
       gimp_progress.update()
   
   if generate_for_pdb:
-    pypredef_generator_pdb.generate_predefined_completions_for_gimp_pdb()
+    pypredefgen_pdb.generate_predefined_completions_for_gimp_pdb()
     gimp_progress.update()
 
 
 def _get_module_names(modules_file_path):
   if os.path.isfile(modules_file_path):
     with io.open(
-           modules_file_path, "r", encoding=pypredef_generator.TEXT_FILE_ENCODING) as modules_file:
+           modules_file_path, "r",
+           encoding=pypredefgen.TEXT_FILE_ENCODING) as modules_file:
       return [line.strip() for line in modules_file.readlines()]
   else:
     return []
@@ -125,7 +126,7 @@ gimpfu.register(
   help=('This plug-in generates separate .pypredef files for each module and '
         'for the GIMP procedural database in the "{0}" subdirectory '
         'of the directory where this plug-in is located.'
-        .format(pypredef_generator.PYPREDEF_FILES_DIRNAME)),
+        .format(pypredefgen.PYPREDEF_FILES_DIRNAME)),
   author="khalim19",
   copyright="",
   date="",

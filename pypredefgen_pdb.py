@@ -15,7 +15,7 @@ import gimp
 import gimpcolor
 import gimpenums
 
-import pypredef_generator
+import pypredefgen
 
 #===============================================================================
 
@@ -43,10 +43,10 @@ class PdbType(object):
     if include_base_type and self._base_type is not None:
       return (
         "{0}({1})".format(
-          pypredef_generator.get_full_type_name(self._type_),
-          pypredef_generator.get_full_type_name(self._base_type)))
+          pypredefgen.get_full_type_name(self._type_),
+          pypredefgen.get_full_type_name(self._base_type)))
     else:
-      return pypredef_generator.get_full_type_name(self._type_)
+      return pypredefgen.get_full_type_name(self._type_)
   
   @classmethod
   def get_by_id(cls, pdb_type_id):
@@ -89,10 +89,11 @@ class PdbParam(object):
   
   def __init__(self, pdb_type_id, name, description=None):
     self._pdb_type_id = pdb_type_id
-    self._orig_name = name.decode(pypredef_generator.TEXT_FILE_ENCODING)
+    self._orig_name = name.decode(pypredefgen.TEXT_FILE_ENCODING)
     
     self.description = (
-      description.decode(pypredef_generator.TEXT_FILE_ENCODING) if description is not None else "")
+      description.decode(pypredefgen.TEXT_FILE_ENCODING)
+      if description is not None else "")
     self.pdb_type = PdbType.get_by_id(pdb_type_id)
     self.name = pythonize_string(self._orig_name)
   
@@ -166,7 +167,8 @@ class MultiStringRegexPattern(object):
   def get_pattern(self):
     if self._pattern is None:
       self._pattern = re.compile(
-        self._get_regex_for_matches_func(self._get_matches_regex_component()), flags=re.UNICODE)
+        self._get_regex_for_matches_func(self._get_matches_regex_component()),
+        flags=re.UNICODE)
     
     return self._pattern
   
@@ -193,11 +195,11 @@ def split_param_description(param_description, regex):
 
 
 def generate_predefined_completions_for_gimp_pdb():
-  pdb_element = pypredef_generator.Element(
-    gimp.pdb, "pdb", gimp.pdb, pypredef_generator.get_ast_node_for_module(gimp.pdb))
+  pdb_element = pypredefgen.Element(
+    gimp.pdb, "pdb", gimp.pdb, pypredefgen.get_ast_node_for_module(gimp.pdb))
   
   for child_member_name in dir(gimp.pdb):
-    child_element = pypredef_generator.Element(
+    child_element = pypredefgen.Element(
       getattr(pdb_element.object, child_member_name, None),
       child_member_name, pdb_element.module)
     
@@ -207,11 +209,11 @@ def generate_predefined_completions_for_gimp_pdb():
       else:
         _insert_ast_node_for_pdb_function(child_element, pdb_element)
     else:
-      pypredef_generator.insert_ast_node(child_member_name, pdb_element, module=gimp)
+      pypredefgen.insert_ast_node(child_member_name, pdb_element, module=gimp)
   
-  pypredef_generator.insert_ast_docstring(pdb_element)
+  pypredefgen.insert_ast_docstring(pdb_element)
   
-  pypredef_generator.write_pypredef_file(pdb_element, filename="gimp.pdb")
+  pypredefgen.write_pypredef_file(pdb_element, filename="gimp.pdb")
 
 
 def _is_element_pdb_function(element):
@@ -225,7 +227,7 @@ def _is_element_generated_temporary_pdb_function(element):
 def _insert_ast_node_for_pdb_function(pdb_function_element, pdb_element):
   pdb_function_node = _get_ast_node_for_pdb_function(pdb_function_element.object)
   pdb_element.node.body.append(pdb_function_node)
-  pypredef_generator.insert_ast_docstring(pdb_function_element)
+  pypredefgen.insert_ast_docstring(pdb_function_element)
 
 
 def _get_ast_node_for_pdb_function(pdb_function):
@@ -238,7 +240,8 @@ def _get_ast_node_for_pdb_function(pdb_function):
         additional_docstring_processing_callbacks=[
           _pythonize_true_false_names,
           _PdbFunctionNamePythonizer.pythonize,
-          _PdbParamNamePythonizer(get_pdb_params(pdb_function.params)).pythonize_docstring]),
+          _PdbParamNamePythonizer(
+            get_pdb_params(pdb_function.params)).pythonize_docstring]),
       _get_ast_return_value_types_for_pdb_function(pdb_function)],
     decorator_list=[])
 
@@ -301,7 +304,7 @@ def _get_ast_docstring_for_pdb_function(
   
   docstring = "\n" + docstring.strip() + "\n"
   
-  docstring = docstring.encode(pypredef_generator.TEXT_FILE_ENCODING)
+  docstring = docstring.encode(pypredefgen.TEXT_FILE_ENCODING)
   
   return ast.Expr(value=ast.Str(s=docstring))
 
@@ -350,7 +353,8 @@ class _PdbParamIntToBoolConverter(object):
   _PDB_BOOL_PARAM_DESCRIPTION_MATCH_REGEX_COMPONENTS = (
     _BOOL_PARAM_DESCRIPTION_TRUE_FALSE_REGEX_FORMAT.format(r"true", r"false", r"1", r"0")
     + r"|"
-    + _BOOL_PARAM_DESCRIPTION_TRUE_FALSE_REGEX_FORMAT.format(r"false", r"true", r"0", r"1"))
+    + _BOOL_PARAM_DESCRIPTION_TRUE_FALSE_REGEX_FORMAT.format(
+        r"false", r"true", r"0", r"1"))
   
   _PDB_BOOL_PARAM_DESCRIPTION_MATCH_REGEX = (
     r"("
@@ -399,7 +403,7 @@ class _PdbFunctionNamePythonizer(object):
   def _fill_pdb_function_names_map(cls):
     if not cls._pdb_function_names_map:
       for pdb_member_name in dir(gimp.pdb):
-        element = pypredef_generator.Element(
+        element = pypredefgen.Element(
           getattr(gimp.pdb, pdb_member_name, None), pdb_member_name, gimp.pdb)
         if (_is_element_pdb_function(element)
             and not _is_element_generated_temporary_pdb_function(element)):
@@ -474,7 +478,8 @@ class _GimpenumsNamePythonizer(object):
       
       for python_enum_name in python_gimpenums_names:
         pdb_enum_name = unpythonize_string(python_enum_name)
-        cls._gimpenums_names_map[pdb_enum_name] = gimpenums.__name__ + "." + python_enum_name
+        cls._gimpenums_names_map[pdb_enum_name] = (
+          gimpenums.__name__ + "." + python_enum_name)
     
     return cls._gimpenums_names_map
   
@@ -485,7 +490,8 @@ class _GimpenumsNamePythonizer(object):
     
     for enum_string in enum_strings:
       enum_string_components = re.split(r"^([A-Z][A-Z0-9-]+) *(\([0-9]+\))$", enum_string)
-      enum_string_components = [component for component in enum_string_components if component]
+      enum_string_components = [
+        component for component in enum_string_components if component]
       
       if len(enum_string_components) == 2:
         enum_name, enum_number_string = enum_string_components

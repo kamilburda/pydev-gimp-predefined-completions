@@ -39,7 +39,7 @@ class Element(object):
     self._module = module
     
     if ast_node is not None:
-      self.node = ast_node
+      self.set_node(ast_node)
     else:
       self._node = None
   
@@ -59,8 +59,7 @@ class Element(object):
   def node(self):
     return self._node
   
-  @node.setter
-  def node(self, node):
+  def set_node(self, node):
     self._node = node
     
     self.node_element_map[node] = self
@@ -116,12 +115,12 @@ def insert_ast_node(child_member_name, element, module=None):
     getattr(element.object, child_member_name, None), child_member_name, module)
   
   if inspect.ismodule(child_element.object):
-    child_element.node = get_ast_node_for_import(child_element)
+    child_element.set_node(get_ast_node_for_import(child_element))
     element.node.body.insert(0, child_element.node)
   elif (inspect.isclass(child_element.object)
         and _can_inspect_class_element(child_element)):
-    child_element.node = get_ast_node_for_class(
-      child_element, module_root=element.module)
+    child_element.set_node(
+      get_ast_node_for_class(child_element, module_root=element.module))
     
     element.node.body.append(child_element.node)
     insert_ast_docstring(child_element)
@@ -132,14 +131,14 @@ def insert_ast_node(child_member_name, element, module=None):
       element.node.body.insert(0, get_ast_node_for_import_by_module_name(module_name))
   elif inspect.isroutine(child_element.object):
     if not inspect.isclass(element.object):
-      child_element.node = get_ast_node_for_function(child_element)
+      child_element.set_node(get_ast_node_for_function(child_element))
     else:
-      child_element.node = get_ast_node_for_method(child_element)
+      child_element.set_node(get_ast_node_for_method(child_element))
     
     element.node.body.append(child_element.node)
     insert_ast_docstring(child_element)
   else:
-    child_element.node = get_ast_node_for_assignment_of_type_to_name(child_element)
+    child_element.set_node(get_ast_node_for_assignment_of_type_to_name(child_element))
     element.node.body.append(child_element.node)
 
 
@@ -186,7 +185,7 @@ def get_ast_node_for_class(class_element, module_root=None):
     body=[],
     decorator_list=[])
   
-  class_element.node = class_node
+  class_element.set_node(class_node)
   
   insert_ast_nodes(class_element)
   

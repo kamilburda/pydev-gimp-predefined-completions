@@ -187,6 +187,12 @@ def get_ast_node_for_class(class_element, module_root=None):
   
   class_element.set_node(class_node)
   
+  if class_element.name_from_dir != class_element.object.__name__:
+    class_element.node.body.insert(
+      0, ast.Assign(
+        targets=[ast.Name(id="__name__")],
+        value=ast.Str(s=bytes(get_full_type_name(class_element.object, module_root)))))
+  
   insert_ast_nodes(class_element)
   
   return class_node

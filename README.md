@@ -33,10 +33,11 @@ Installation
 ------------
 
 1. Install the script by copying all files to the
-   `[user directory]/.gimp-<version>/plug-ins` directory.
+   `[user directory]/.gimp-[version]/plug-ins` directory.
 2. Download the [astor](https://github.com/berkerpeksag/astor) library and
-   install it in `[user directory]/.gimp-<version>/plug-ins` directory.
+   install it in `[user directory]/.gimp-[version]/plug-ins` directory.
 
+Example of an installation directory: `/home/khalim/.gimp-2.8/plug-ins`.
 
 Running the Generator
 ---------------------
@@ -46,7 +47,8 @@ To run the generator, open GIMP and choose
 
 Alternatively, you may run the plug-in from the Python-Fu console: Open GIMP,
 choose `Filters -> Python-Fu -> Console` and enter
-`pdb.python_fu_generate_predefined_completions_for_pydev(True, True)`.
+
+    `pdb.python_fu_generate_predefined_completions_for_pydev(True, True)`
 
 
 Installing Predefined Completions in PyDev

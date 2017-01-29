@@ -48,7 +48,7 @@ To run the generator, open GIMP and choose
 Alternatively, you may run the plug-in from the Python-Fu console: Open GIMP,
 choose `Filters -> Python-Fu -> Console` and enter
 
-    `pdb.python_fu_generate_predefined_completions_for_pydev(True, True)`
+    pdb.python_fu_generate_predefined_completions_for_pydev(True, True)
 
 
 Installing Predefined Completions in PyDev

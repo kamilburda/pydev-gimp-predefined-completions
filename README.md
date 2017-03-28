@@ -57,7 +57,7 @@ Installing Predefined Completions in PyDev
 Once the generator finishes running, the predefined completions are located in
 the `pypredefs` subdirectory of the directory where this plug-in is installed.
 
-To add the predefined completions to PyDev, refer to
+To add the predefined completions to PyDev, refer to the
 [PyDev documentation](http://www.pydev.org/manual_101_interpreter.html). Simply
 add the entire `pypredefs` directory to the list of directories with predefined
 completions for the Python interpreter used by GIMP.

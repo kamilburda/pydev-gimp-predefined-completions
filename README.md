@@ -37,7 +37,7 @@ Installation
 2. Download the [astor](https://github.com/berkerpeksag/astor) library and
    install it in `[user directory]/.gimp-[version]/plug-ins` directory.
 
-Example of an installation directory: `/home/khalim/.gimp-2.8/plug-ins`.
+Example of `[user directory]`: `/home/khalim/.gimp-2.8/plug-ins`
 
 Running the Generator
 ---------------------

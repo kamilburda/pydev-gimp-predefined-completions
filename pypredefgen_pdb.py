@@ -42,7 +42,7 @@ class PdbType(object):
   def get_name(self, include_base_type=False):
     if include_base_type and self._base_type is not None:
       return (
-        "{0}({1})".format(
+        b"{0}({1})".format(
           pypredefgen.get_full_type_name(self._type_),
           pypredefgen.get_full_type_name(self._base_type)))
     else:
@@ -89,11 +89,9 @@ class PdbParam(object):
   
   def __init__(self, pdb_type_id, name, description=None):
     self._pdb_type_id = pdb_type_id
-    self._orig_name = name.decode(pypredefgen.TEXT_FILE_ENCODING)
+    self._orig_name = name
     
-    self.description = (
-      description.decode(pypredefgen.TEXT_FILE_ENCODING)
-      if description is not None else "")
+    self.description = description if description is not None else b""
     self.pdb_type = PdbType.get_by_id(pdb_type_id)
     self.name = pythonize_string(self._orig_name)
   
@@ -107,11 +105,11 @@ class PdbParam(object):
 
 
 def pythonize_string(str_):
-  return str_.replace("-", "_")
+  return str_.replace(b"-", b"_")
 
 
 def unpythonize_string(str_):
-  return str_.replace("_", "-")
+  return str_.replace(b"_", b"-")
 
 
 def get_pdb_params(pdb_function_params):
@@ -145,13 +143,13 @@ def _move_run_mode_param_to_end(pdb_params):
 
 def _get_run_mode_param_index(pdb_params):
   for pdb_param_index, pdb_param in enumerate(pdb_params):
-    if pdb_param.name == "run_mode":
+    if pdb_param.name == b"run_mode":
       return pdb_param_index
   
   return None
 
 
-_DEFAULT_RUN_MODE_NAME = "gimpenums.RUN_NONINTERACTIVE"
+_DEFAULT_RUN_MODE_NAME = b"gimpenums.RUN_NONINTERACTIVE"
 
 #===============================================================================
 
@@ -167,17 +165,16 @@ class MultiStringRegexPattern(object):
   def get_pattern(self):
     if self._pattern is None:
       self._pattern = re.compile(
-        self._get_regex_for_matches_func(self._get_matches_regex_component()),
-        flags=re.UNICODE)
+        self._get_regex_for_matches_func(self._get_matches_regex_component()))
     
     return self._pattern
   
   def _get_matches_regex_component(self):
     return (
-      r"("
-      + r"|".join(
+      br"("
+      + br"|".join(
           re.escape(match_string) for match_string in self._matches_and_replacements)
-      + r")")
+      + br")")
   
   def sub(self, replacement, str_):
     return self.get_pattern().sub(replacement, str_)
@@ -196,7 +193,7 @@ def split_param_description(param_description, regex):
 
 def generate_predefined_completions_for_gimp_pdb():
   pdb_element = pypredefgen.Element(
-    gimp.pdb, "pdb", gimp.pdb, pypredefgen.get_ast_node_for_module(gimp.pdb))
+    gimp.pdb, b"pdb", gimp.pdb, pypredefgen.get_ast_node_for_module(gimp.pdb))
   
   for child_member_name in dir(gimp.pdb):
     child_element = pypredefgen.Element(
@@ -217,11 +214,11 @@ def generate_predefined_completions_for_gimp_pdb():
 
 
 def _is_element_pdb_function(element):
-  return element.object.__class__.__name__ == "PDBFunction"
+  return element.object.__class__.__name__ == b"PDBFunction"
 
 
 def _is_element_generated_temporary_pdb_function(element):
-  return element.name_from_dir.startswith("temp_procedure_")
+  return element.name_from_dir.startswith(b"temp_procedure_")
 
 
 def _insert_ast_node_for_pdb_function(pdb_function_element, pdb_element):
@@ -270,7 +267,7 @@ def _get_ast_return_value_types_for_pdb_function(pdb_function):
     return_value_types_node = ast.Name(
       id=PdbType.get_by_id(pdb_function.return_vals[0][0]).get_name())
   else:
-    return_value_types_node = ast.Name(id="None")
+    return_value_types_node = ast.Name(id=b"None")
   
   return ast.Return(value=return_value_types_node)
 
@@ -278,33 +275,31 @@ def _get_ast_return_value_types_for_pdb_function(pdb_function):
 def _get_ast_docstring_for_pdb_function(
       pdb_function, additional_docstring_processing_callbacks=None):
   
-  docstring = ""
+  docstring = b""
   
   if pdb_function.proc_blurb:
     docstring += pdb_function.proc_blurb
   
   if pdb_function.proc_help and pdb_function.proc_help != pdb_function.proc_blurb:
-    docstring += "\n\n"
+    docstring += b"\n\n"
     docstring += pdb_function.proc_help
   
   docstring += _get_pdb_docstring_for_params(
-    get_pdb_params_with_fixed_run_mode(pdb_function.params)[0], "Parameters:",
+    get_pdb_params_with_fixed_run_mode(pdb_function.params)[0], b"Parameters:",
     additional_param_processing_callbacks=[
       _PdbParamIntToBoolConverter.convert,
       _GimpenumsNamePythonizer.pythonize,
       _PdbParamNamePythonizer(get_pdb_params(pdb_function.params)).pythonize_param])
   
   docstring += _get_pdb_docstring_for_params(
-    get_pdb_params(pdb_function.return_vals), "Returns:",
+    get_pdb_params(pdb_function.return_vals), b"Returns:",
     additional_param_processing_callbacks=[_GimpenumsNamePythonizer.pythonize])
   
   if additional_docstring_processing_callbacks:
     for process_docstring in additional_docstring_processing_callbacks:
       docstring = process_docstring(docstring)
   
-  docstring = "\n" + docstring.strip() + "\n"
-  
-  docstring = docstring.encode(pypredefgen.TEXT_FILE_ENCODING)
+  docstring = b"\n" + docstring.strip() + b"\n"
   
   return ast.Expr(value=ast.Str(s=docstring))
 
@@ -312,26 +307,26 @@ def _get_ast_docstring_for_pdb_function(
 def _get_pdb_docstring_for_params(
       pdb_params, docstring_heading, additional_param_processing_callbacks=None):
   
-  params_docstring = ""
+  params_docstring = b""
   if additional_param_processing_callbacks is None:
     additional_param_processing_callbacks = []
   
   if pdb_params:
-    params_docstring += "\n\n"
-    params_docstring += "{0}\n".format(docstring_heading)
+    params_docstring += b"\n\n"
+    params_docstring += b"{0}\n".format(docstring_heading)
     
     for pdb_param in pdb_params:
       for process_pdb_param in additional_param_processing_callbacks:
         process_pdb_param(pdb_param)
-      params_docstring += _get_pdb_param_docstring(pdb_param) + "\n"
+      params_docstring += _get_pdb_param_docstring(pdb_param) + b"\n"
     
-    params_docstring = params_docstring.rstrip("\n")
+    params_docstring = params_docstring.rstrip(b"\n")
   
   return params_docstring
 
 
 def _get_pdb_param_docstring(pdb_param):
-  return "{0} ({1}): {2}".format(
+  return b"{0} ({1}): {2}".format(
     pdb_param.name,
     pdb_param.pdb_type.get_name(include_base_type=True),
     pdb_param.description)
@@ -341,39 +336,40 @@ def _get_pdb_param_docstring(pdb_param):
 
 
 def _pythonize_true_false_names(docstring):
-  return docstring.replace("FALSE", "False").replace("TRUE", "True")
+  return docstring.replace(b"FALSE", b"False").replace(b"TRUE", b"True")
 
 
 class _PdbParamIntToBoolConverter(object):
   
   _BOOL_PARAM_DESCRIPTION_TRUE_FALSE_REGEX_FORMAT = (
-    r"[\.:]? *\(?{0}(  *or  *| *[/,] *){1}\)?"
-    r"|[\.:]? *\{{ *{0}( *\({2}\))?, *{1}( *\({3}\))? *\}}")
+    br"[\.:]? *\(?{0}(  *or  *| *[/,] *){1}\)?"
+    br"|[\.:]? *\{{ *{0}( *\({2}\))?, *{1}( *\({3}\))? *\}}")
   
   _PDB_BOOL_PARAM_DESCRIPTION_MATCH_REGEX_COMPONENTS = (
-    _BOOL_PARAM_DESCRIPTION_TRUE_FALSE_REGEX_FORMAT.format(r"true", r"false", r"1", r"0")
-    + r"|"
+    _BOOL_PARAM_DESCRIPTION_TRUE_FALSE_REGEX_FORMAT.format(
+      br"true", br"false", br"1", br"0")
+    + br"|"
     + _BOOL_PARAM_DESCRIPTION_TRUE_FALSE_REGEX_FORMAT.format(
-        r"false", r"true", r"0", r"1"))
+        br"false", br"true", br"0", br"1"))
   
   _PDB_BOOL_PARAM_DESCRIPTION_MATCH_REGEX = (
-    r"("
+    br"("
     + _PDB_BOOL_PARAM_DESCRIPTION_MATCH_REGEX_COMPONENTS
-    + r"|true: .*false: "
-    + r"|false: .*true: "
-    + r"|\?$"
-    + r")")
+    + br"|true: .*false: "
+    + br"|false: .*true: "
+    + br"|\?$"
+    + br")")
   
   _PDB_BOOL_PARAM_DESCRIPTION_SUBSTITUTE_REGEX = (
-    r"(" + _PDB_BOOL_PARAM_DESCRIPTION_MATCH_REGEX_COMPONENTS + r")$")
+    br"(" + _PDB_BOOL_PARAM_DESCRIPTION_MATCH_REGEX_COMPONENTS + br")$")
   
   @classmethod
   def convert(cls, pdb_param):
     if cls._is_pdb_param_bool(pdb_param):
       pdb_param.pdb_type = PdbType(pdb_param.pdb_type.type_, bool)
       pdb_param.description = re.sub(
-        cls._PDB_BOOL_PARAM_DESCRIPTION_SUBSTITUTE_REGEX, "",
-        pdb_param.description, flags=re.UNICODE | re.IGNORECASE)
+        cls._PDB_BOOL_PARAM_DESCRIPTION_SUBSTITUTE_REGEX, b"",
+        pdb_param.description, flags=re.IGNORECASE)
   
   @classmethod
   def _is_pdb_param_bool(cls, pdb_param):
@@ -381,19 +377,19 @@ class _PdbParamIntToBoolConverter(object):
       pdb_param.pdb_type.type_ is int
       and re.search(
         cls._PDB_BOOL_PARAM_DESCRIPTION_MATCH_REGEX,
-        pdb_param.description, flags=re.UNICODE | re.IGNORECASE))
+        pdb_param.description, flags=re.IGNORECASE))
 
 
 class _PdbFunctionNamePythonizer(object):
   
   _pdb_function_names_map = {}
   _pdb_function_names_pattern = MultiStringRegexPattern(
-    _pdb_function_names_map, lambda matches_regex: r"'\b" + matches_regex + r"\b'")
+    _pdb_function_names_map, lambda matches_regex: br"'\b" + matches_regex + br"\b'")
   
   @classmethod
   def pythonize(cls, docstring):
     def _pythonize_function_name(match):
-      return "`{0}`".format(cls._pdb_function_names_map[match.group(1)])
+      return b"`{0}`".format(cls._pdb_function_names_map[match.group(1)])
     
     cls._fill_pdb_function_names_map()
     
@@ -408,7 +404,8 @@ class _PdbFunctionNamePythonizer(object):
         if (_is_element_pdb_function(element)
             and not _is_element_generated_temporary_pdb_function(element)):
           unpythonized_member_name = unpythonize_string(pdb_member_name)
-          cls._pdb_function_names_map[unpythonized_member_name] = "pdb." + pdb_member_name
+          cls._pdb_function_names_map[unpythonized_member_name] = (
+            b"pdb." + pdb_member_name)
     
     return cls._pdb_function_names_map
 
@@ -422,20 +419,20 @@ class _PdbParamNamePythonizer(object):
       pdb_param.orig_name: pdb_param.name for pdb_param in pdb_params}
   
     self._pdb_param_names_pattern = MultiStringRegexPattern(
-      self._pdb_param_names, lambda matches_regex: r"'\b" + matches_regex + r"\b'")
+      self._pdb_param_names, lambda matches_regex: br"'\b" + matches_regex + br"\b'")
   
   def pythonize_param(self, pdb_param):
     param_description_parts = split_param_description(
-      pdb_param.description, r"^(.*)\((.*?)\)$")
+      pdb_param.description, br"^(.*)\((.*?)\)$")
     if not param_description_parts:
       return
     
-    pdb_param.description = "".join([
+    pdb_param.description = b"".join([
       param_description_parts[0],
       self._pythonize_param_name_in_description(param_description_parts[1])])
   
   def _pythonize_param_name_in_description(self, param_description_part):
-    components = re.split(r"( +[<>]=? +)", param_description_part)
+    components = re.split(br"( +[<>]=? +)", param_description_part)
     processed_components = []
     
     for component in components:
@@ -444,11 +441,11 @@ class _PdbParamNamePythonizer(object):
       else:
         processed_components.append(component)
     
-    return "({0})".format("".join(processed_components))
+    return b"({0})".format(b"".join(processed_components))
   
   def pythonize_docstring(self, docstring):
     def _pythonize_param_name(match):
-      return "`{0}`".format(self._pdb_param_names[match.group(1)])
+      return b"`{0}`".format(self._pdb_param_names[match.group(1)])
     
     return self._pdb_param_names_pattern.sub(_pythonize_param_name, docstring)
 
@@ -460,11 +457,11 @@ class _GimpenumsNamePythonizer(object):
   @classmethod
   def pythonize(cls, pdb_param):
     pdb_param_description_parts = split_param_description(
-      pdb_param.description, r"(.*{ *)(.*?)( *})$")
+      pdb_param.description, br"(.*{ *)(.*?)( *})$")
     if not pdb_param_description_parts:
       return
     
-    pdb_param.description = "".join([
+    pdb_param.description = b"".join([
       pdb_param_description_parts[0],
       cls._pythonize_enum_names(pdb_param_description_parts[1]),
       pdb_param_description_parts[2]])
@@ -474,22 +471,23 @@ class _GimpenumsNamePythonizer(object):
     if not cls._gimpenums_names_map:
       python_gimpenums_names = [
         member for member in dir(gimpenums)
-        if re.match(r"[A-Z][A-Z0-9_]*$", member) and member not in ["TRUE", "FALSE"]]
+        if re.match(br"[A-Z][A-Z0-9_]*$", member) and member not in [b"TRUE", b"FALSE"]]
       
       for python_enum_name in python_gimpenums_names:
         pdb_enum_name = unpythonize_string(python_enum_name)
         cls._gimpenums_names_map[pdb_enum_name] = (
-          gimpenums.__name__ + "." + python_enum_name)
+          gimpenums.__name__ + b"." + python_enum_name)
     
     return cls._gimpenums_names_map
   
   @classmethod
   def _pythonize_enum_names(cls, enums):
-    enum_strings = re.split(r", *", enums)
+    enum_strings = re.split(br", *", enums)
     processed_enum_strings = []
     
     for enum_string in enum_strings:
-      enum_string_components = re.split(r"^([A-Z][A-Z0-9-]+) *(\([0-9]+\))$", enum_string)
+      enum_string_components = re.split(
+        br"^([A-Z][A-Z0-9-]+) *(\([0-9]+\))$", enum_string)
       enum_string_components = [
         component for component in enum_string_components if component]
       
@@ -498,8 +496,8 @@ class _GimpenumsNamePythonizer(object):
         if enum_name in cls._get_gimpenums_names_map():
           enum_name = cls._get_gimpenums_names_map()[enum_name]
         
-        processed_enum_strings.append("{0} {1}".format(enum_name, enum_number_string))
+        processed_enum_strings.append(b"{0} {1}".format(enum_name, enum_number_string))
       else:
         processed_enum_strings.append(enum_string)
     
-    return ", ".join(processed_enum_strings)
+    return b", ".join(processed_enum_strings)

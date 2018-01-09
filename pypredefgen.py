@@ -143,7 +143,7 @@ def insert_ast_node(child_member_name, element, module=None):
 
 
 def _can_inspect_class_element(class_element):
-  return class_element.name_from_dir != "__class__"
+  return class_element.name_from_dir != b"__class__"
 
 
 def get_ast_node_for_module(module):
@@ -163,8 +163,8 @@ def get_ast_node_for_import_by_module_name(module_name):
 
 
 def get_relative_module_name(module, module_root):
-  module_path_components = module.__name__.split(".")
-  module_root_path_components = module_root.__name__.split(".")
+  module_path_components = module.__name__.split(b".")
+  module_root_path_components = module_root.__name__.split(b".")
   
   for root_path_component in module_root_path_components:
     if (len(module_path_components) > 1
@@ -173,7 +173,7 @@ def get_relative_module_name(module, module_root):
     else:
       break
   
-  return ".".join(module_path_components)
+  return b".".join(module_path_components)
 
 
 def get_ast_node_for_class(class_element, module_root=None):
@@ -190,7 +190,7 @@ def get_ast_node_for_class(class_element, module_root=None):
   if class_element.name_from_dir != class_element.object.__name__:
     class_element.node.body.insert(
       0, ast.Assign(
-        targets=[ast.Name(id="__name__")],
+        targets=[ast.Name(id=b"__name__")],
         value=ast.Str(s=bytes(get_full_type_name(class_element.object, module_root)))))
   
   insert_ast_nodes(class_element)
@@ -201,21 +201,21 @@ def get_ast_node_for_class(class_element, module_root=None):
 def get_full_type_name(type_, module_root=None):
   type_module = inspect.getmodule(type_)
   
-  if (type_module and hasattr(type_module, "__name__")
-      and type_module.__name__ != "__builtin__"):
+  if (type_module and hasattr(type_module, b"__name__")
+      and type_module.__name__ != b"__builtin__"):
     if (module_root is not None
         and _module_names_equal(type_module.__name__, module_root.__name__)):
       return type_.__name__
     else:
       return (
         _get_module_name_without_internal_component(type_module.__name__)
-        + "." + type_.__name__)
+        + b"." + type_.__name__)
   else:
     return type_.__name__
 
 
 def get_full_type_name_from_object(object_, module_root=None):
-  if hasattr(object_, "__class__"):
+  if hasattr(object_, b"__class__"):
     type_ = object_.__class__
   else:
     type_ = type(object_)
@@ -227,7 +227,7 @@ def _get_external_module_names_for_base_classes(subclass):
   external_modules = []
   
   for base_class in subclass.__bases__:
-    if (base_class.__module__ != "__builtin__"
+    if (base_class.__module__ != b"__builtin__"
         and not _module_names_equal(base_class.__module__, subclass.__module__)):
       external_module_name = _get_module_name_without_internal_component(
         base_class.__module__)
@@ -240,18 +240,18 @@ def _get_external_module_names_for_base_classes(subclass):
 def _module_names_equal(module_name1, module_name2):
   return (
     module_name1 == module_name2
-    or (module_name1.startswith("_") and module_name1[1:] == module_name2)
+    or (module_name1.startswith(b"_") and module_name1[1:] == module_name2)
     or (_get_module_name_without_internal_component(module_name1) == module_name2)
-    or (module_name2.startswith("_") and module_name1 == module_name2[1:])
+    or (module_name2.startswith(b"_") and module_name1 == module_name2[1:])
     or (module_name1 == _get_module_name_without_internal_component(module_name2)))
 
 
 def _get_module_name_without_internal_component(module_name):
-  module_name_components = module_name.split(".")
+  module_name_components = module_name.split(b".")
   
   if (len(module_name_components) >= 2
-      and module_name_components[0] == module_name_components[1].lstrip("_")):
-    return ".".join([module_name_components[0]] + module_name_components[2:])
+      and module_name_components[0] == module_name_components[1].lstrip(b"_")):
+    return b".".join([module_name_components[0]] + module_name_components[2:])
   else:
     return module_name
 
@@ -267,7 +267,7 @@ def get_ast_node_for_function(function_element):
 def get_ast_node_for_method(method_element):
   arguments = get_ast_arguments_for_routine(method_element.object)
   if not arguments.args:
-    arguments.args.insert(0, ast.Name(id="self"))
+    arguments.args.insert(0, ast.Name(id=b"self"))
   
   return ast.FunctionDef(
     name=method_element.name_from_dir,
@@ -280,7 +280,7 @@ def get_ast_node_for_assignment_of_type_to_name(element):
   if element.object is not None:
     member_type_name = get_full_type_name_from_object(element.object, element.module)
   else:
-    member_type_name = "None"
+    member_type_name = b"None"
   
   return ast.Assign(
     targets=[ast.Name(id=element.name_from_dir)], value=ast.Name(id=member_type_name))

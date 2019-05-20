@@ -15,8 +15,8 @@ import importlib
 import gimp
 import gimpfu
 
-import pypredefgen
-import pypredefgen_pdb
+from pypredefgen_gimp import pypredefgen
+from pypredefgen_gimp import pypredefgen_pdb
 
 
 def generate_predefined_completions_for_pydev(generate_for_modules, generate_for_pdb):
@@ -61,9 +61,8 @@ def _get_module_names(modules_file_path):
 
 def _make_dirs(path):
   """
-  Recursively create directories from the specified path.
-  
-  Do not raise exception if the path already exists.
+  Recursively create directories from the specified path. Do not raise exception
+  if the path already exists.
   """
   try:
     os.makedirs(path)
@@ -76,9 +75,6 @@ def _make_dirs(path):
       pass
     else:
       raise
-
-
-#===============================================================================
 
 
 class GimpProgress(object):
@@ -113,8 +109,6 @@ def _get_num_progress_items(generate_for_modules, module_names, generate_for_pdb
   
   return num_progress_items
 
-
-#===============================================================================
 
 gimpfu.register(
   proc_name="generate_predefined_completions_for_pydev",

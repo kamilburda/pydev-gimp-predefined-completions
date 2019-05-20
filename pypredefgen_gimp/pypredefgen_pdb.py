@@ -15,7 +15,7 @@ import gimp
 import gimpcolor
 import gimpenums
 
-import pypredefgen
+from . import pypredefgen
 
 
 class PdbType(object):

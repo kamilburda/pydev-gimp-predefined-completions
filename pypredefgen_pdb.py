@@ -17,8 +17,6 @@ import gimpenums
 
 import pypredefgen
 
-#===============================================================================
-
 
 class PdbType(object):
   
@@ -123,7 +121,6 @@ def get_pdb_params_with_fixed_run_mode(pdb_function_params):
   
   If `run_mode` is in the parameter list, it is moved to the end of the list.
   """
-  
   pdb_params = get_pdb_params(pdb_function_params)
   has_run_mode_param = _move_run_mode_param_to_end(pdb_params)
   

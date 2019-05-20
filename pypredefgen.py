@@ -16,7 +16,6 @@ import ast
 
 import astor
 
-#===============================================================================
 
 PLUGIN_DIR = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 MODULES_FILE_PATH = os.path.join(PLUGIN_DIR, "modules.txt")
@@ -24,8 +23,6 @@ PYPREDEF_FILES_DIRNAME = "pypredefs"
 PYPREDEF_FILES_DIR = os.path.join(PLUGIN_DIR, PYPREDEF_FILES_DIRNAME)
 
 TEXT_FILE_ENCODING = "utf-8"
-
-#===============================================================================
 
 
 class Element(object):

@@ -18,8 +18,6 @@ import gimpfu
 import pypredefgen
 import pypredefgen_pdb
 
-#===============================================================================
-
 
 def generate_predefined_completions_for_pydev(generate_for_modules, generate_for_pdb):
   if generate_for_modules:
@@ -67,7 +65,6 @@ def _make_dirs(path):
   
   Do not raise exception if the path already exists.
   """
-  
   try:
     os.makedirs(path)
   except OSError as exc:

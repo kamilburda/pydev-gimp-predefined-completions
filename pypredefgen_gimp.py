@@ -35,6 +35,19 @@ MODULES_FILEPATH = os.path.join(PLUGIN_DIRPATH, "modules.txt")
 PYPREDEF_FILES_DIRNAME = "pypredefs"
 PYPREDEF_FILES_DIRPATH = os.path.join(PLUGIN_DIRPATH, PYPREDEF_FILES_DIRNAME)
 
+MODULES_FOR_WHICH_TO_IGNORE_DOCSTRINGS = [
+  "_gimpui",
+  "gtk._gtk",
+  "gtk.gdk",
+  "gobject._gobject",
+  "cairo._cairo",
+  "pango",
+  "pangocairo",
+  "atk",
+  "glib._glib",
+  "gio._gio",
+]
+
 
 def generate_predefined_completions_for_pydev(
       generate_for_modules=True, generate_for_pdb=True):
@@ -52,9 +65,7 @@ def generate_predefined_completions_for_pydev(
     
     pypredefgen.module_specific_processing_functions.update({
       module_name: [pypredefgen.remove_class_docstrings]
-      for module_name in [
-        "_gimpui", "gtk._gtk", "gtk.gdk", "gobject._gobject", "cairo._cairo", "pango",
-        "pangocairo", "atk", "glib._glib", "gio._gio"]
+      for module_name in MODULES_FOR_WHICH_TO_IGNORE_DOCSTRINGS
     })
     
     for module_name in module_names:

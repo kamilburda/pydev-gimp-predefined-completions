@@ -48,6 +48,10 @@ MODULES_FOR_WHICH_TO_IGNORE_DOCSTRINGS = [
   "gio._gio",
 ]
 
+MODULES_TO_SKIP_FOR_GIMP_2_10_ON_WINDOWS = [
+  "_gimpui",
+]
+
 
 def generate_predefined_completions_for_pydev(
       generate_for_modules=True, generate_for_pdb=True):
@@ -69,6 +73,11 @@ def generate_predefined_completions_for_pydev(
     })
     
     for module_name in module_names:
+      if (gimp.version[:2] == (2, 10)
+          and os.name == "nt"
+          and module_name in MODULES_TO_SKIP_FOR_GIMP_2_10_ON_WINDOWS):
+        continue
+      
       module = importlib.import_module(module_name)
       pypredefgen.generate_predefined_completions(PYPREDEF_FILES_DIRPATH, module)
       gimp_progress.update()

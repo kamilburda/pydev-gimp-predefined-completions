@@ -29,9 +29,17 @@ from pypredefgen_gimp import pypredefgen
 from pypredefgen_gimp import pypredefgen_pdb
 
 
-def generate_predefined_completions_for_pydev(generate_for_modules, generate_for_pdb):
+PLUGIN_DIRPATH = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+MODULES_FILEPATH = os.path.join(PLUGIN_DIRPATH, "modules.txt")
+
+PYPREDEF_FILES_DIRNAME = "pypredefs"
+PYPREDEF_FILES_DIRPATH = os.path.join(PLUGIN_DIRPATH, PYPREDEF_FILES_DIRNAME)
+
+
+def generate_predefined_completions_for_pydev(
+      generate_for_modules=True, generate_for_pdb=True):
   if generate_for_modules:
-    module_names = _get_module_names(pypredefgen.MODULES_FILE_PATH)
+    module_names = _get_module_names(MODULES_FILEPATH)
   else:
     module_names = []
   
@@ -40,7 +48,7 @@ def generate_predefined_completions_for_pydev(generate_for_modules, generate_for
   gimp_progress.initialize()
   
   if generate_for_modules:
-    _make_dirs(pypredefgen.PYPREDEF_FILES_DIR)
+    _make_dirs(PYPREDEF_FILES_DIRPATH)
     
     pypredefgen.module_specific_processing_functions.update({
       module_name: [pypredefgen.remove_class_docstrings]
@@ -51,11 +59,11 @@ def generate_predefined_completions_for_pydev(generate_for_modules, generate_for
     
     for module_name in module_names:
       module = importlib.import_module(module_name)
-      pypredefgen.generate_predefined_completions(module)
+      pypredefgen.generate_predefined_completions(PYPREDEF_FILES_DIRPATH, module)
       gimp_progress.update()
   
   if generate_for_pdb:
-    pypredefgen_pdb.generate_predefined_completions_for_gimp_pdb()
+    pypredefgen_pdb.generate_predefined_completions_for_gimp_pdb(PYPREDEF_FILES_DIRPATH)
     gimp_progress.update()
 
 
@@ -127,7 +135,7 @@ gimpfu.register(
   help=('This plug-in generates separate .pypredef files for each module and '
         'for the GIMP procedural database in the "{0}" subdirectory '
         'of the directory where this plug-in is located.'
-        .format(pypredefgen.PYPREDEF_FILES_DIRNAME)),
+        .format(PYPREDEF_FILES_DIRNAME)),
   author="khalim19",
   copyright="",
   date="",

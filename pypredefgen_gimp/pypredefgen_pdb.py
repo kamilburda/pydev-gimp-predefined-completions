@@ -188,7 +188,7 @@ def split_param_description(param_description, regex):
 #===============================================================================
 
 
-def generate_predefined_completions_for_gimp_pdb():
+def generate_predefined_completions_for_gimp_pdb(root_dirpath):
   pdb_element = pypredefgen.Element(
     gimp.pdb, b"pdb", gimp.pdb, pypredefgen.get_ast_node_for_module(gimp.pdb))
   
@@ -207,7 +207,7 @@ def generate_predefined_completions_for_gimp_pdb():
   
   pypredefgen.insert_ast_docstring(pdb_element)
   
-  pypredefgen.write_pypredef_file(pdb_element, filename="gimp.pdb")
+  pypredefgen.write_pypredef_file(root_dirpath, pdb_element, filename="gimp.pdb")
 
 
 def _is_element_pdb_function(element):

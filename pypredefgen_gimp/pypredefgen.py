@@ -17,11 +17,7 @@ import ast
 import astor
 
 
-PLUGIN_DIR = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
-MODULES_FILE_PATH = os.path.join(PLUGIN_DIR, "modules.txt")
-PYPREDEF_FILES_DIRNAME = "pypredefs"
-PYPREDEF_FILES_DIR = os.path.join(PLUGIN_DIR, PYPREDEF_FILES_DIRNAME)
-
+PYPREDEF_FILE_EXTENSION = "pypredef"
 TEXT_FILE_ENCODING = "utf-8"
 
 
@@ -70,7 +66,7 @@ class Element(object):
 #===============================================================================
 
 
-def generate_predefined_completions(module):
+def generate_predefined_completions(root_dirpath, module):
   module_node = get_ast_node_for_module(module)
   module_element = Element(module, None, module, module_node)
   
@@ -80,20 +76,20 @@ def generate_predefined_completions(module):
   
   process_ast_nodes(module_element)
   
-  write_pypredef_file(module_element)
+  write_pypredef_file(root_dirpath, module_element)
 
 
-def write_pypredef_file(module_element, filename=None):
+def write_pypredef_file(root_dirpath, module_element, filename=None):
   if filename is None:
     filename = module_element.object.__name__
   
-  pypredef_file_path = _get_pypredef_file_path(filename)
+  pypredef_file_path = _get_pypredef_file_path(root_dirpath, filename)
   with io.open(pypredef_file_path, "w", encoding=TEXT_FILE_ENCODING) as pypredef_file:
     pypredef_file.write(astor.to_source(module_element.node).decode(TEXT_FILE_ENCODING))
 
 
-def _get_pypredef_file_path(module_name):
-  return os.path.join(PYPREDEF_FILES_DIR, module_name + ".pypredef")
+def _get_pypredef_file_path(root_dirpath, module_name):
+  return os.path.join(root_dirpath, module_name + "." + PYPREDEF_FILE_EXTENSION)
 
 
 #===============================================================================

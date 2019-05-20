@@ -132,4 +132,6 @@ gimpfu.register(
   function=generate_predefined_completions_for_pydev,
   menu="<Image>/Filters/Languages/Python-Fu")
 
-gimpfu.main()
+
+if __name__ == "__main__":
+  gimpfu.main()

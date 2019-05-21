@@ -35,7 +35,7 @@ Running the Generator
 To run the generator, open GIMP and choose `Filters → Python-Fu → Generate Predefined Completions for PyDev`.
 
 You may adjust the output directory.
-By default, the predefined completions are located in the `[path to GIMP user config]/pypredefs` subdirectory.
+By default, the predefined completions are located in the `[path to GIMP user config]/pypredefs` directory.
 
 Alternatively, you may run the generator from the Python-Fu console - open GIMP, choose `Filters -> Python-Fu -> Console` and enter
 

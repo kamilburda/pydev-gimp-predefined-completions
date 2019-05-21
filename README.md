@@ -23,7 +23,7 @@ Installation
 2. Choose one of the listed directories there and copy `pypredefgen_gimp.py` and `pypredefgen_gimp` to that directory.
 3. Download the [astor](https://github.com/berkerpeksag/astor) library and place it in the directory for plug-ins. On Linux and possibly macOS, you may install the library via `pip`:
   
-    pip install astor
+        pip install astor
 
 
 Running the Generator

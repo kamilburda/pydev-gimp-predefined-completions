@@ -33,7 +33,7 @@ PLUGIN_DIRPATH = os.path.dirname(os.path.abspath(inspect.getfile(inspect.current
 MODULES_FILEPATH = os.path.join(PLUGIN_DIRPATH, "modules.txt")
 
 PYPREDEF_FILES_DIRNAME = "pypredefs"
-PYPREDEF_FILES_DIRPATH = os.path.join(PLUGIN_DIRPATH, PYPREDEF_FILES_DIRNAME)
+PYPREDEF_FILES_DIRPATH = os.path.join(gimp.directory, PYPREDEF_FILES_DIRNAME)
 
 MODULES_FOR_WHICH_TO_IGNORE_DOCSTRINGS = [
   "_gimpui",
@@ -53,38 +53,42 @@ MODULES_TO_SKIP_FOR_GIMP_2_10_ON_WINDOWS = [
 ]
 
 
-def generate_predefined_completions_for_pydev(
-      generate_for_modules=True, generate_for_pdb=True):
-  if generate_for_modules:
-    module_names = _get_module_names(MODULES_FILEPATH)
-  else:
-    module_names = []
+def generate_predefined_completions_for_pydev(output_dirpath=PYPREDEF_FILES_DIRPATH):
+  if not output_dirpath:
+    output_dirpath = PYPREDEF_FILES_DIRPATH
   
-  gimp_progress = GimpProgress(
-    _get_num_progress_items(generate_for_modules, module_names, generate_for_pdb))
+  module_names = _get_module_names(MODULES_FILEPATH)
+  
+  gimp_progress = GimpProgress(_get_num_progress_items(module_names))
   gimp_progress.initialize()
   
-  if generate_for_modules:
-    _make_dirs(PYPREDEF_FILES_DIRPATH)
-    
-    pypredefgen.module_specific_processing_functions.update({
-      module_name: [pypredefgen.remove_class_docstrings]
-      for module_name in MODULES_FOR_WHICH_TO_IGNORE_DOCSTRINGS
-    })
-    
-    for module_name in module_names:
-      if (gimp.version[:2] == (2, 10)
-          and os.name == "nt"
-          and module_name in MODULES_TO_SKIP_FOR_GIMP_2_10_ON_WINDOWS):
-        continue
-      
-      module = importlib.import_module(module_name)
-      pypredefgen.generate_predefined_completions(PYPREDEF_FILES_DIRPATH, module)
-      gimp_progress.update()
+  _make_dirs(output_dirpath)
   
-  if generate_for_pdb:
-    pypredefgen_pdb.generate_predefined_completions_for_gimp_pdb(PYPREDEF_FILES_DIRPATH)
+  _generate_for_modules(output_dirpath, module_names, gimp_progress)
+  
+  _generate_for_pdb(output_dirpath, gimp_progress)
+
+
+def _generate_for_modules(output_dirpath, module_names, gimp_progress):
+  pypredefgen.module_specific_processing_functions.update({
+    module_name: [pypredefgen.remove_class_docstrings]
+    for module_name in MODULES_FOR_WHICH_TO_IGNORE_DOCSTRINGS
+  })
+  
+  for module_name in module_names:
+    if (gimp.version[:2] == (2, 10)
+        and os.name == "nt"
+        and module_name in MODULES_TO_SKIP_FOR_GIMP_2_10_ON_WINDOWS):
+      continue
+    
+    module = importlib.import_module(module_name)
+    pypredefgen.generate_predefined_completions(output_dirpath, module)
     gimp_progress.update()
+
+
+def _generate_for_pdb(output_dirpath, gimp_progress):
+  pypredefgen_pdb.generate_predefined_completions_for_gimp_pdb(output_dirpath)
+  gimp_progress.update()
 
 
 def _get_module_names(modules_file_path):
@@ -137,15 +141,8 @@ class GimpProgress(object):
     gimp.progress_update(self._num_finished_tasks / self.num_total_tasks)
   
 
-def _get_num_progress_items(generate_for_modules, module_names, generate_for_pdb):
-  num_progress_items = 0
-  if generate_for_modules:
-    num_progress_items += len(module_names)
-  
-  if generate_for_pdb:
-    num_progress_items += 1
-  
-  return num_progress_items
+def _get_num_progress_items(module_names):
+  return len(module_names) + 1
 
 
 gimpfu.register(
@@ -162,9 +159,7 @@ gimpfu.register(
   label="Generate Predefined Completions for PyDev",
   imagetypes="",
   params=[
-    (gimpfu.PF_BOOL, "generate_for_modules", "Generate completions for modules?", True),
-    (gimpfu.PF_BOOL, "generate_for_pdb",
-     "Generate completions for GIMP procedural database (PDB)?", True)
+    (gimpfu.PF_STRING, "output_folder", "Output folder", PYPREDEF_FILES_DIRPATH),
   ],
   results=[],
   function=generate_predefined_completions_for_pydev,

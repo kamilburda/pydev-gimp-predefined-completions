@@ -31,15 +31,15 @@ Running the Generator
 
 To run the generator, open GIMP and choose `Filters -> Python-Fu -> Generate Predefined Completions for PyDev`.
 
+You may adjust the output directory.
+By default, the predefined completions are located in the `[path to GIMP user config]/pypredefs` subdirectory.
+
 Alternatively, you may run the plug-in from the Python-Fu console: Open GIMP, choose `Filters -> Python-Fu -> Console` and enter
 
-    pdb.python_fu_generate_predefined_completions_for_pydev(True, True)
+    pdb.python_fu_generate_predefined_completions_for_pydev(None)
 
 
 Adding Predefined Completions in PyDev
 --------------------------------------
 
-Once the generator finishes running, the predefined completions are located in the `pypredefs` subdirectory of the directory containing this script.
-
 To add the predefined completions to PyDev, simply choose the GIMP Python interpreter and add the entire `pypredefs` directory as per the [instructions](http://www.pydev.org/manual_101_interpreter.html#PyDevInterpreterConfiguration-PredefinedCompletions).
-

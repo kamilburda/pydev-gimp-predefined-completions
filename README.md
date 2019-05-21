@@ -46,3 +46,10 @@ Adding Predefined Completions in PyDev
 --------------------------------------
 
 To add the predefined completions to PyDev, go to `Window → Preferences → PyDev → Interpreters → Python Interpreter`, choose the GIMP Python interpreter and add the directory containing the generated completions as per the [instructions](http://www.pydev.org/manual_101_interpreter.html#PyDevInterpreterConfiguration-PredefinedCompletions).
+
+
+Note for GIMP 2.10 Users on Windows
+-----------------------------------
+
+For GIMP 2.10 on Windows up to 2.10.8, predefined completions for the `gimpui` module are not generated due to crashes when accessing certain members of that module. 
+This issue does not occur from GIMP 2.10.10 onwards.

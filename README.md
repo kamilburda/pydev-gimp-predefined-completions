@@ -19,8 +19,8 @@ Requirements
 Installation
 ------------
 
-1. Locate the directory for plug-ins in your GIMP installation. Go to `Edit → Preferences → Folders → Plug-Ins`.
-2. Choose one of the listed directories there and copy the contents of the package to that directory.
+1. Locate the directory for plug-ins in your GIMP installation by going to `Edit → Preferences → Folders → Plug-Ins`.
+2. Choose one of the listed directories there and copy `pypredefgen_gimp.py` and `pypredefgen_gimp` to that directory.
 3. Download the [astor](https://github.com/berkerpeksag/astor) library and place it in the directory for plug-ins. On Linux and possibly macOS, you may install the library via `pip`:
   
     pip install astor

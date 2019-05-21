@@ -1,3 +1,12 @@
+2.0
+===
+
+* Provided compatibility with GIMP 2.10.
+* The output directory is now adjustable and defaults to `[path to GIMP user config]/pypredefs`.
+* Removed options to toggle generating completions from GIMP + GTK modules and the GIMP PDB. All modules are now considered when generating predefined completions.
+* Renamed and reorganized files.
+
+
 1.3
 ===
 

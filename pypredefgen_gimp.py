@@ -30,7 +30,7 @@ from pypredefgen_gimp import pypredefgen_pdb
 
 
 PLUGIN_DIRPATH = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
-MODULES_FILEPATH = os.path.join(PLUGIN_DIRPATH, "modules.txt")
+MODULES_FILEPATH = os.path.join(PLUGIN_DIRPATH, "pypredefgen_gimp", "modules.txt")
 
 PYPREDEF_FILES_DIRNAME = "pypredefs"
 PYPREDEF_FILES_DIRPATH = os.path.join(gimp.directory, PYPREDEF_FILES_DIRNAME)

@@ -1,8 +1,7 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
 
-"""
-This module defines a GIMP plug-in to generate predefined completions for PyDev
+"""This is a GIMP plug-in that generates predefined completions for PyDev
 (Eclipse IDE plug-in) for GIMP modules.
 """
 

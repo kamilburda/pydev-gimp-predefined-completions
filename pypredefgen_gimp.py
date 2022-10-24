@@ -13,12 +13,10 @@ import io
 import os
 import sys
 
-# Fix Windows installation failing to import modules from subdirectories in the
-# `plug-ins` directory.
-if os.name == "nt":
-  current_module_dirpath = os.path.dirname(inspect.getfile(inspect.currentframe()))
-  if current_module_dirpath not in sys.path:
-    sys.path.append(current_module_dirpath)
+# Fix GIMP failing to import modules from subdirectories in the `plug-ins` directory.
+current_module_dirpath = os.path.dirname(inspect.getfile(inspect.currentframe()))
+if current_module_dirpath not in sys.path:
+  sys.path.append(current_module_dirpath)
 
 import importlib
 

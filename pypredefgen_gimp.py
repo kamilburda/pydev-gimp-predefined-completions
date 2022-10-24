@@ -150,7 +150,7 @@ gimpfu.register(
         'for the GIMP procedural database in the "{0}" subdirectory '
         'of the directory where this plug-in is located.'
         .format(PYPREDEF_FILES_DIRNAME)),
-  author="khalim19",
+  author="Kamil Burda",
   copyright="",
   date="",
   label="Generate Predefined Completions for PyDev",

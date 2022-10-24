@@ -1,3 +1,9 @@
+2.1
+===
+
+* Moved the plug-in repository to a new location.
+
+
 2.0
 ===
 

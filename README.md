@@ -1,18 +1,24 @@
 PyDev Predefined Completions Generator for GIMP
 ===============================================
 
-This Python script generates [predefined completions](http://www.pydev.org/manual_101_interpreter.html) for [PyDev](http://www.pydev.org/) for GIMP and GTK modules to improve development of GIMP plug-ins written in Python.
+This Python script generates [predefined completions](http://www.pydev.org/manual_101_interpreter.html) for [PyDev](http://www.pydev.org/) for GIMP 2.8/2.10 and GTK 2 modules to improve development of GIMP plug-ins written in Python.
 
 Development of Python GIMP plug-ins is provided by several Python modules compiled as `.pyd` files.
 However, PyDev has trouble parsing such files, resulting in missing code completion and `Undefined variable from import` error messages.
 
 This script therefore mitigates this problem by generating predefined completions for GIMP modules, GTK modules and GIMP procedures/plug-ins (accessible via `gimp.pdb`).
 
+This script is not applicable to GIMP 2.99 or later due to significant changes in the GIMP plug-in API.
+Some IDEs can already automatically generate predefined completions (stubs) for compiled GIMP 2.99 and GTK 3 modules such as [PyCharm](https://www.jetbrains.com/help/pycharm/stubs.html).
+For PyCharm specifically, you may need to [add missing stubs](https://github.com/kamilburda/gimp-missing-python-stubs-for-pycharm).
+For general development, the [Python PDB wrapper](https://github.com/kamilburda/gimp-python-pdb-wrapper) can simplify the development of GIMP 2.99 plug-ins.
+
+
 
 Requirements
 ------------
 
-* GIMP 2.8 or later
+* GIMP 2.8 or 2.10 (will **not** work on GIMP 2.99 or later)
 * [astor](https://github.com/berkerpeksag/astor) library - version 0.6 or later
 
 
